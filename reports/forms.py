@@ -1,6 +1,8 @@
 from django import forms
 from accounts.models import Patient, Appointment
-from reports.models import MeasurementType, ReportMeasurement
+from reports.models import MeasurementType, ReportMeasurement, ReportBlock
+
+from django.forms import modelformset_factory
 
 
 class PatientForm(forms.ModelForm):
@@ -91,3 +93,11 @@ class ReportMeasurementForm(forms.Form):
                 defaults={'value': value}
             )
 
+ReportBlockFormSet = modelformset_factory(
+    ReportBlock,
+    fields=('content',),
+    extra=0,
+    widgets={
+        'content': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+    }
+)

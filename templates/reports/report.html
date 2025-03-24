@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+{% load dict_extras %}
+
 <head>
   <meta charset="UTF-8">
   <title>Laudo Ecocardiográfico</title>
@@ -98,6 +100,37 @@
       <span id="ved_altura_result">0.00</span>
     </div>
 
+    <div class="divider"></div>
+
+    <!-- Seção 5: Laudo Descritivo -->
+    <h2>5. Laudo Descritivo</h2>
+    {% if formset %}
+      <div>
+        {% for form, title in combined_blocks %}
+        <div class="report-block">
+          <h4>{{ title }}</h4>
+          <p><strong>{{ title }}</strong></p>
+          {{ form.content }}
+
+            {% with grouped_options|get_item:title|stringformat:"s"|lower as options %}
+              {% if options %}
+                <div class="shortcut-options">
+                  <strong>Atalhos:</strong>
+                  {% for option in options %}
+                    <button type="button" class="btn btn-outline-secondary btn-sm insert-option"
+                            data-target-id="{{ form.content.id_for_label }}"
+                            data-text="{{ option.text }}">
+                      {{ option.text|truncatechars:50 }}
+                    </button>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            {% endwith %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     <button type="submit">Salvar Laudo Completo</button>
 
   </form>
@@ -138,6 +171,19 @@ function calcularDerivados() {
 // Adiciona eventos nos inputs manuais
 document.querySelectorAll('.manual-measurement').forEach(input => {
     input.addEventListener('input', calcularDerivados);
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.insert-option').forEach(button => {
+    button.addEventListener('click', function () {
+      const textarea = document.getElementById(this.dataset.targetId);
+      if (textarea) {
+        textarea.value = this.dataset.text;
+      }
+    });
+  });
 });
 </script>
 

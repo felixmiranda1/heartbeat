@@ -1,12 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.utils import timezone
-from reports.models import Report, ReportMeasurement, MeasurementType
+from reports.models import Report, ReportMeasurement, MeasurementType, ReportBlock, CustomOptionCategory
 from accounts.models import Patient, Appointment
 import uuid
 from decimal import Decimal
-from reports.forms import PatientForm, AppointmentForm, ReportMeasurementForm
-
+from reports.forms import PatientForm, AppointmentForm, ReportMeasurementForm, ReportBlockFormSet, modelformset_factory
 
 def create_report(request):
     if request.method == 'POST':
@@ -46,6 +45,18 @@ def create_report(request):
                 updated_at=timezone.now()
             )
 
+            # Adiciona os ReportBlocks com os títulos das categorias
+            categories = CustomOptionCategory.objects.all().order_by('name')
+            for index, category in enumerate(categories):
+                ReportBlock.objects.create(
+                    id=uuid.uuid4(),
+                    report=report,
+                    title=category.name,
+                    order_index=index,
+                    created_at=timezone.now(),
+                    updated_at=timezone.now()
+                )
+
             # ✅ Salva as medições manuais vinculadas ao Report
             measurement_form.report = report
             measurement_form.save()
@@ -83,11 +94,25 @@ def create_report(request):
         patient_form = PatientForm()
         appointment_form = AppointmentForm(initial={'date': timezone.now()})
         measurement_form = ReportMeasurementForm()
+        categories = CustomOptionCategory.objects.all().order_by('name')
+        # Pass categories to the template context
+        
+        ReportBlockFormSet = modelformset_factory(ReportBlock, fields=('content',), extra=len(categories))
+        formset = ReportBlockFormSet(queryset=ReportBlock.objects.none())
 
+        # Atribui o título diretamente ao instance de cada form, com base nas categorias
+        for form, category in zip(formset.forms, categories):
+            form.instance.title = category.name
+
+        # Combina cada form com o título correspondente
+        combined_blocks = list(zip(formset.forms, [category.name for category in categories]))
+        
         context = {
             'patient_form': patient_form,
             'appointment_form': appointment_form,
             'measurement_form': measurement_form,
+            'formset': formset,
+            'combined_blocks': combined_blocks,
             'section': 'new_report'
         }
         return render(request, 'reports/report.html', context)
@@ -177,3 +202,61 @@ def calculate_derived_measurements_from_form(manual_values):
         if parede_posterior and diastole_final_ve and massa_ve else None
     )
     return derived_values
+
+from reports.models import ReportBlock, CustomOption
+from reports.forms import ReportBlockFormSet
+
+def edit_descriptive_report(request, report_id):
+    report = get_object_or_404(Report, id=report_id)
+
+    # 🔽 Passo 1: Carrega as categorias de bloco
+    categories = CustomOptionCategory.objects.all().order_by('name')
+
+    # 🔽 Passo 2: Carrega os atalhos (agrupados por nome da categoria)
+    custom_options = CustomOption.objects.select_related('category').all().order_by('category__name')
+    grouped_options = {}
+    for option in custom_options:
+        grouped_options.setdefault(option.category.name, []).append(option)
+
+    if request.method == 'POST':
+        formset = ReportBlockFormSet(request.POST, queryset=ReportBlock.objects.filter(report=report).order_by('order_index'))
+
+        if formset.is_valid():
+            instances = formset.save(commit=False)
+
+            for instance in instances:
+                instance.report = report
+                instance.updated_at = timezone.now()
+                if not instance.created_at:
+                    instance.created_at = timezone.now()
+                instance.save()
+
+            messages.success(request, "Laudo descritivo atualizado com sucesso.")
+            return redirect('reports:edit_descriptive_report', report_id=report.id)
+        else:
+            messages.error(request, "Por favor, corrija os erros nos campos do laudo descritivo.")
+    else:
+        all_blocks = []
+ 
+        for index, category in enumerate(categories):
+            # Procura se já existe um bloco com esse título
+            block, created = ReportBlock.objects.get_or_create(
+                report=report,
+                title=category.name,
+                defaults={
+                    'order_index': index,
+                    'created_at': timezone.now(),
+                    'updated_at': timezone.now()
+                }
+            )
+            all_blocks.append(block)
+ 
+        formset = ReportBlockFormSet(queryset=ReportBlock.objects.filter(report=report).order_by('order_index'))
+
+    context = {
+        'report': report,
+        'formset': formset,
+        'grouped_options': grouped_options,
+        'section': 'edit_descriptive_report'
+    }
+    return render(request, 'reports/report.html', context)
