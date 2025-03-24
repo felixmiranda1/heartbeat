@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Laudo Ecocardiográfico</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+    h1 {
+      margin-bottom: 40px;
+    }
+    h2 {
+      margin-top: 30px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 10px;
+    }
+    form {
+      margin-bottom: 30px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+    .divider {
+      margin: 40px 0;
+      border-top: 2px dashed #ccc;
+    }
+    .derived-value {
+      margin-bottom: 8px;
+    }
+    .derived-label {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Preencher Laudo Ecocardiográfico</h1>
+
+  <form method="post" action="{% url 'reports:create_report' %}">
+    {% csrf_token %}
+
+    <!-- Seção 1: Dados do Paciente -->
+    <h2>1. Dados do Paciente</h2>
+    {{ patient_form.as_p }}
+
+    <div class="divider"></div>
+
+    <!-- Seção 2: Dados da Consulta -->
+    <h2>2. Dados da Consulta</h2>
+    {{ appointment_form.as_p }}
+
+    <div class="divider"></div>
+
+    <!-- Seção 3: Laudo Numérico -->
+    <h2>3. Laudo Numérico</h2>
+    {% for field in measurement_form %}
+      <div>
+        {{ field.label_tag }}
+        <input type="number" step="any" id="id_{{ field.name }}" class="manual-measurement">
+        {% if field.help_text %}
+          <small>{{ field.help_text }}</small>
+        {% endif %}
+        {% if field.errors %}
+          <div style="color: red;">{{ field.errors }}</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    <div class="divider"></div>
+
+    <!-- Seção 4: Cálculos Derivados (Preview) -->
+    <h2>4. Cálculos Derivados (Preview)</h2>
+    <div>
+      <label>Fração de Ejeção (Teicholz):</label>
+      <span id="fracaoEjecaoTeicholz_result">0.00 %</span>
+    </div>
+
+    <div>
+      <label>Massa Ventricular Esquerda:</label>
+      <span id="massaVE_result">0.00 g</span>
+    </div>
+
+    <div>
+      <label>VE(d) / Altura:</label>
+      <span id="ved_altura_result">0.00</span>
+    </div>
+
+    <button type="submit">Salvar Laudo Completo</button>
+
+  </form>
+
+  <script>
+// Função que faz os cálculos baseados nos campos preenchidos
+function calcularDerivados() {
+    // Pegando os valores dos inputs manuais
+    const diastoleFinalVe = parseFloat(document.getElementById('id_measurement_7afa3a2b-d414-4fa0-8d82-b941f3f7db36').value) || 0;
+    const sistoleFinalVe = parseFloat(document.getElementById('id_measurement_c5326b50-bf6c-46f7-bbec-15748bee04c4').value) || 0;
+    const septo = parseFloat(document.getElementById('id_measurement_690b176b-8163-4ce4-82d7-8df8e9df6050').value) || 0;
+    const paredePosterior = parseFloat(document.getElementById('id_measurement_846611f4-8e53-4487-83cd-1ca680a2bd48').value) || 0;
+
+    // 🧮 Fração de Ejeção (Teicholz)
+    let fracaoEjecaoTeicholz = 0;
+    if (diastoleFinalVe > 0) {
+        fracaoEjecaoTeicholz = ((diastoleFinalVe - sistoleFinalVe) / diastoleFinalVe) * 100;
+    }
+
+    // 🧮 Massa Ventricular Esquerda
+    let massaVE = 0;
+    if (diastoleFinalVe && septo && paredePosterior) {
+        massaVE = 0.8 * Math.pow((diastoleFinalVe + septo + paredePosterior), 3);
+    }
+
+    // 🧮 VE(d) / Altura (considerando altura padrão 1.7, se quiser pegar de outro campo, ajusta aqui)
+    let vedAltura = 0;
+    if (diastoleFinalVe) {
+        vedAltura = diastoleFinalVe / 1.7;
+    }
+
+    // Exibir resultados nos spans do HTML
+    document.getElementById('fracaoEjecaoTeicholz_result').innerText = fracaoEjecaoTeicholz.toFixed(2) + ' %';
+    document.getElementById('massaVE_result').innerText = massaVE.toFixed(2) + ' g';
+    document.getElementById('ved_altura_result').innerText = vedAltura.toFixed(2);
+}
+
+// Adiciona eventos nos inputs manuais
+document.querySelectorAll('.manual-measurement').forEach(input => {
+    input.addEventListener('input', calcularDerivados);
+});
+</script>
+
+</body>
+</html>

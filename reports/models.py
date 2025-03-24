@@ -19,26 +19,46 @@ class Report(models.Model):
     def __str__(self):
         return f"Report for {self.patient.name} - {self.status}"
 
-
-# Report Measurement (Medições numéricas + derivadas)
-class ReportMeasurement(models.Model):
+class MeasurementType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    report = models.ForeignKey(Report, on_delete=models.CASCADE)
-    name = models.CharField(max_length=255)
-    value = models.DecimalField(max_digits=10, decimal_places=2)
-    unit = models.CharField(max_length=20, choices=[
+    name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(null=True, blank=True)
+
+    UNIT_CHOICES = [
         ('mm', 'mm'),
         ('cm', 'cm'),
         ('ml', 'ml'),
         ('ml/m²', 'ml/m²'),
+        ('mm/m²', 'mm/m²'),
+        ('mm/m', 'mm/m'),
         ('g', 'g'),
         ('g/m²', 'g/m²'),
         ('g/m', 'g/m'),
         ('%', '%'),
-        ('L/min', 'L/min')
-    ])
+        ('L/min', 'L/min'),
+        ('-', '-')
+    ]
+
+    unit = models.CharField(max_length=20, choices=UNIT_CHOICES)
+    is_calculated = models.BooleanField(default=False)
     reference_min = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     reference_max = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'heartbeat"."measurement_type'
+        managed = False
+
+    def __str__(self):
+        return self.name
+
+# Report Measurement (Medições numéricas + derivadas)
+class ReportMeasurement(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    report = models.ForeignKey('Report', on_delete=models.CASCADE)
+    measurement_type = models.ForeignKey(MeasurementType, on_delete=models.CASCADE)
+    value = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -47,8 +67,7 @@ class ReportMeasurement(models.Model):
         managed = False
 
     def __str__(self):
-        return f"{self.name}: {self.value} {self.unit}"
-
+        return f"{self.measurement_type.name}: {self.value} {self.measurement_type.unit}"
 
 # Descriptive Report Block (Bloco descritivo do laudo)
 class ReportBlock(models.Model):
