@@ -8,7 +8,7 @@ from django.forms import modelformset_factory
 class PatientForm(forms.ModelForm):
     class Meta:
         model = Patient
-        fields = ['name', 'birth_date', 'gender', 'cpf']  # Adicione outros se quiser
+        fields = ['name', 'birth_date', 'gender', 'cpf', 'height', 'weight', 'contact']  # Adicione outros se quiser
         widgets = {
             'birth_date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -29,7 +29,7 @@ class PatientForm(forms.ModelForm):
 class AppointmentForm(forms.ModelForm):
     class Meta:
         model = Appointment
-        fields = ['date']
+        fields = ['date', 'professional', 'procedure', 'health_insurance', 'insurance_plan', 'requester', 'observations']
         widgets = {
             'date': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
         }

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 {% load dict_extras %}
+{% load widget_tweaks %}
 
 <head>
   <meta charset="UTF-8">
@@ -71,7 +72,7 @@
     {% for field in measurement_form %}
       <div>
         {{ field.label_tag }}
-        <input type="number" step="any" id="id_{{ field.name }}" class="manual-measurement">
+        {{ field|add_class:"manual-measurement" }}
         {% if field.help_text %}
           <small>{{ field.help_text }}</small>
         {% endif %}
@@ -104,15 +105,16 @@
 
     <!-- Seção 5: Laudo Descritivo -->
     <h2>5. Laudo Descritivo</h2>
-    {% if formset %}
+    {% if combined_blocks %}
       <div>
-        {% for form, title in combined_blocks %}
-        <div class="report-block">
-          <h4>{{ title }}</h4>
-          <p><strong>{{ title }}</strong></p>
-          {{ form.content }}
+        {{ formset.management_form }}
+        {% for form, category in combined_blocks %}
+          <div class="report-block">
+            <h4>{{ category.name }}</h4>
+            {{ form.id }}
+            {{ form.content|add_class:"manual-report-block" }}
 
-            {% with grouped_options|get_item:title|stringformat:"s"|lower as options %}
+            {% with grouped_options|get_item:category.id as options %}
               {% if options %}
                 <div class="shortcut-options">
                   <strong>Atalhos:</strong>
@@ -120,7 +122,7 @@
                     <button type="button" class="btn btn-outline-secondary btn-sm insert-option"
                             data-target-id="{{ form.content.id_for_label }}"
                             data-text="{{ option.text }}">
-                      {{ option.text|truncatechars:50 }}
+                      {{ option.shortcut_key }} — {{ option.text|truncatechars:50 }}
                     </button>
                   {% endfor %}
                 </div>
@@ -173,19 +175,67 @@ document.querySelectorAll('.manual-measurement').forEach(input => {
     input.addEventListener('input', calcularDerivados);
 });
 </script>
-
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-  document.querySelectorAll('.insert-option').forEach(button => {
-    button.addEventListener('click', function () {
-      const textarea = document.getElementById(this.dataset.targetId);
-      if (textarea) {
-        textarea.value = this.dataset.text;
-      }
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('textarea').forEach(textarea => {
+      textarea.addEventListener('keyup', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          let lines = this.value.split('\n');
+  
+          // Captura a última linha com conteúdo
+          let lastLineIndex = lines.length - 1;
+          while (lastLineIndex >= 0 && lines[lastLineIndex].trim() === '') {
+            lastLineIndex--;
+          }
+  
+          if (lastLineIndex < 0) return;
+  
+          let lastLine = lines[lastLineIndex].trim();
+          const words = lastLine.split(/\s+/);
+          const lastWord = words[words.length - 1];
+          const textareaId = this.id;
+  
+          const relatedOptions = Array.from(
+            document.querySelectorAll(`.insert-option[data-target-id="${textareaId}"]`)
+          );
+  
+          for (const option of relatedOptions) {
+            if (option.innerText.startsWith(lastWord + ' —')) {
+              // Remove o atalho digitado da linha
+              const atalhoRegex = new RegExp(`\\b${lastWord}\\b\\s*$`);
+              lastLine = lastLine.replace(atalhoRegex, '').trim();
+  
+              // Substitui a linha com a frase expandida
+              lines[lastLineIndex] = (lastLine + ' ' + option.dataset.text).trim();
+  
+              // Garante uma linha vazia ao final
+              if (lines[lines.length - 1].trim() !== '') {
+                lines.push('');
+              }
+  
+              this.value = lines.join('\n');
+              break;
+            }
+          }
+        }
+      });
+    });
+  
+    // Inserção de texto com quebra de linha ao clicar no botão
+    document.querySelectorAll('.insert-option').forEach(button => {
+      button.addEventListener('click', function () {
+        const textarea = document.getElementById(this.dataset.targetId);
+        if (textarea) {
+          if (textarea.value.trim()) {
+            textarea.value += '\n' + this.dataset.text;
+          } else {
+            textarea.value = this.dataset.text;
+          }
+        }
+      });
     });
   });
-});
-</script>
+  </script>
 
 </body>
 </html>

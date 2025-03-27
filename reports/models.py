@@ -92,6 +92,7 @@ class CustomOptionCategory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
+    order_index = models.IntegerField(default=0)
     description = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -118,7 +119,7 @@ class CustomOption(models.Model):
         managed = False
 
     def __str__(self):
-        return f"{self.shortcut_key}: {self.text[:30]}"
+        return f"{self.shortcut_key}: {self.text} [{self.category}]"
 
 
 # Sync Log (controle de sincronização offline/online)
