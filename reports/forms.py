@@ -8,7 +8,7 @@ from django.forms import modelformset_factory
 class PatientForm(forms.ModelForm):
     class Meta:
         model = Patient
-        fields = ['name', 'birth_date', 'gender', 'cpf', 'height', 'weight', 'contact']  # Adicione outros se quiser
+        fields = ['name', 'birth_date', 'gender', 'cpf','contact', 'height', 'weight'] 
         widgets = {
             'birth_date': forms.DateInput(attrs={'type': 'date'}),
         }
@@ -29,9 +29,9 @@ class PatientForm(forms.ModelForm):
 class AppointmentForm(forms.ModelForm):
     class Meta:
         model = Appointment
-        fields = ['date', 'professional', 'procedure', 'health_insurance', 'insurance_plan', 'requester', 'observations']
+        fields = ['date', 'requester', 'professional', 'procedure', 'health_insurance', 'insurance_plan', 'observations']
         widgets = {
-            'date': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'date': forms.DateInput(attrs={'type': 'date'}),
         }
 
     def clean_date(self):
@@ -53,7 +53,7 @@ class ReportMeasurementForm(forms.Form):
         for measurement in manual_measurements:
             field_name = f"measurement_{measurement.id}"
             self.fields[field_name] = forms.DecimalField(
-                label=f"{measurement.name} ({measurement.unit})",
+                label=f"{measurement.name}",
                 required=False,
                 min_value=None,
                 max_value=None,

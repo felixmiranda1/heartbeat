@@ -1,0 +1,42 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %} HeartBeat {% endblock %}</title>
+
+    <!-- Fonte Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <link href="{% static 'css/output.css' %}" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 flex flex-col min-h-screen">
+
+    <!-- Navbar azul -->
+    <header class="bg-blue-600 shadow-md p-4 text-white">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-semibold">🫀 HeartBeat</h1>
+            <p class="text-sm hidden sm:block">Software de Laudos Cardiológicos</p>
+        </div>
+    </header>
+
+    <!-- Conteúdo da Página -->
+    <main class="flex-1 container mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="p-4 bg-gray-200 text-center text-gray-700 text-sm">
+        &copy; 2025 HeartBeat - Todos os direitos reservados.
+    </footer>
+
+</body>
+</html>

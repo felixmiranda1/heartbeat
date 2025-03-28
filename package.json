@@ -1,0 +1,26 @@
+{
+  "name": "heartbeat",
+  "version": "1.0.0",
+  "description": "**Echodoppler Report Generation System**   A system designed to simplify and speed up the creation of echodoppler reports for cardiologists.",
+  "main": "index.js",
+  "scripts": {
+    "build-css": "npx tailwindcss -i ./static/css/input.css -o ./static/css/output.css --watch"
+  },
+  
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felixmiranda1/heartbeat.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/felixmiranda1/heartbeat/issues"
+  },
+  "homepage": "https://github.com/felixmiranda1/heartbeat#readme",
+  "devDependencies": {
+    "daisyui": "^5.0.9",
+    "tailwindcss": "^4.0.17"
+  }
+  
+}

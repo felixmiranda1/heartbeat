@@ -1,41 +1,51 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.utils import timezone
-from reports.models import Report, ReportMeasurement, MeasurementType, ReportBlock, CustomOptionCategory
-from accounts.models import Patient, Appointment
-import uuid
+from django.template.loader import render_to_string
+from django.http import HttpResponse
 from decimal import Decimal
-from reports.forms import PatientForm, AppointmentForm, ReportMeasurementForm, ReportBlockFormSet, modelformset_factory
+import uuid
+from xhtml2pdf import pisa
+from io import BytesIO
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from reports.models import (
+    Report, ReportMeasurement, MeasurementType,
+    ReportBlock, CustomOptionCategory, CustomOption
+)
+from accounts.models import Patient, Appointment
+from reports.forms import (
+    PatientForm, AppointmentForm, ReportMeasurementForm,
+    ReportBlockFormSet, modelformset_factory
+)
+
+# ------------------------------------------------------------------------------
+# 🚀 Report Creation View
+# ------------------------------------------------------------------------------
 
 def create_report(request):
+    """Handle creation of a new echocardiographic report."""
     if request.method == 'POST':
         patient_form = PatientForm(request.POST)
         appointment_form = AppointmentForm(request.POST)
         measurement_form = ReportMeasurementForm(request.POST)
 
         if patient_form.is_valid() and appointment_form.is_valid() and measurement_form.is_valid():
-            # ✅ Get the measurements filled out by the doctor in the manual form
             manual_values = measurement_form.cleaned_data
-
-            # ✅ Calculate derived values based on the filled measurements
             derived_values = calculate_derived_measurements_from_form(manual_values)
 
-            # ✅ Check if a patient with the same birth date and similar name already exists
+            # Try to reuse existing patient
             birth_date = patient_form.cleaned_data.get('birth_date')
             name = patient_form.cleaned_data.get('name').strip().lower()
+            patient = Patient.objects.filter(birth_date=birth_date, name__iexact=name).first()
 
-            existing_patient = Patient.objects.filter(birth_date=birth_date).filter(name__iexact=name).first()
-
-            if existing_patient:
-                patient = existing_patient
-            else:
+            if not patient:
                 patient = patient_form.save(commit=False)
                 patient.id = uuid.uuid4()
                 patient.created_at = timezone.now()
                 patient.updated_at = timezone.now()
                 patient.save()
 
-            # ✅ Create and save the Appointment
             appointment = appointment_form.save(commit=False)
             appointment.id = uuid.uuid4()
             appointment.patient = patient
@@ -43,7 +53,6 @@ def create_report(request):
             appointment.updated_at = timezone.now()
             appointment.save()
 
-            # ✅ Create and save the Report
             report = Report.objects.create(
                 id=uuid.uuid4(),
                 appointment=appointment,
@@ -53,23 +62,24 @@ def create_report(request):
                 updated_at=timezone.now()
             )
 
-            # ✅ Add the ReportBlocks and save the created ones
+            # Create descriptive blocks for this report
             categories = CustomOptionCategory.objects.all().order_by('order_index')
-            created_blocks = []
-            for category in categories:
-                block = ReportBlock.objects.create(
+            created_blocks = [
+                ReportBlock.objects.create(
                     id=uuid.uuid4(),
                     report=report,
-                    title=category.name,
-                    order_index=category.order_index,
+                    title=cat.name,
+                    order_index=cat.order_index,
                     created_at=timezone.now(),
                     updated_at=timezone.now()
                 )
-                created_blocks.append(block)
+                for cat in categories
+            ]
 
-            # ✅ Update the contents of the descriptive blocks based on the formset
+            # Fill in descriptive blocks using formset
             ReportBlockFormSet = modelformset_factory(ReportBlock, fields=('content',), extra=0)
-            formset = ReportBlockFormSet(request.POST, queryset=ReportBlock.objects.filter(id__in=[b.id for b in created_blocks]))
+            formset = ReportBlockFormSet(request.POST, queryset=ReportBlock.objects.none())
+
             if formset.is_valid():
                 for form, category in zip(formset.forms, categories):
                     instance = form.save(commit=False)
@@ -79,56 +89,46 @@ def create_report(request):
                     instance.updated_at = timezone.now()
                     if not instance.created_at:
                         instance.created_at = timezone.now()
-                    instance.save()
+                    if instance.id:
+                        instance.save()
             else:
-                for form in formset:
-                    print("⛔ Errors in form:", form.errors)
-                print("General formset errors:", formset.non_form_errors())
-                
-            # ✅ Save the manual measurements linked to the Report
+                print("⛔ Formset errors:", formset.errors, formset.non_form_errors())
+
+            # Save measurements
             measurement_form.report = report
             measurement_form.save()
 
-            # ✅ Save the calculated measures directly to the database
             for measurement_type_id, value in derived_values.items():
                 if value is None:
-                    continue 
+                    continue
                 measurement_type = MeasurementType.objects.get(id=measurement_type_id)
-
                 ReportMeasurement.objects.update_or_create(
                     report=report,
                     measurement_type=measurement_type,
-                    defaults={
-                        'value': value,
-                        'updated_at': timezone.now()
-                    }
+                    defaults={'value': value, 'updated_at': timezone.now()}
                 )
+        # After the report is saved, generate the PDF
+        #generate_report_pdf(request, report.id)
+            
+        messages.success(request, "Measurements saved successfully.")
+        return generate_report_pdf(request, report.id)  # This will return PDF directly
 
-            messages.success(request, "Measurements saved successfully.")
-            return redirect('reports:create_report')
+        messages.error(request, "Please correct the errors in the form.")
 
-        else:
-            messages.error(request, "Please correct the errors in the form.")
     else:
-        # Handle GET: initialize blank forms and context
         patient_form = PatientForm()
         appointment_form = AppointmentForm(initial={'date': timezone.now()})
         measurement_form = ReportMeasurementForm()
         categories = CustomOptionCategory.objects.all().order_by('order_index')
 
-        # Create a formset with one form for each category
         ReportBlockFormSet = modelformset_factory(ReportBlock, fields=('content',), extra=len(categories))
         formset = ReportBlockFormSet(queryset=ReportBlock.objects.none())
 
-        # Set the title (category name) for each block of the form
         for form, category in zip(formset.forms, categories):
             form.instance.title = category.name
             form.instance.order_index = category.order_index
 
-        # Combine the forms with the category objects
         combined_blocks = list(zip(formset.forms, categories))
-
-        # Group the options by category ID (for safe lookup in the template)
         custom_options = CustomOption.objects.select_related('category').all().order_by('category__name')
         grouped_options = {}
         for option in custom_options:
@@ -145,14 +145,12 @@ def create_report(request):
         }
         return render(request, 'reports/report.html', context)
 
-def calculate_derived_measurements_from_form(manual_values):
-    """
-    Calculates derived values from the data filled in the manual measurement form.
-    manual_values: dict from measurement_form.cleaned_data
-    Returns: dictionary {measurement_type_id: calculated_value}
-    """
+# ------------------------------------------------------------------------------
+# 🧠 Calculations
+# ------------------------------------------------------------------------------
 
-    # Getting manual values filled in the form
+def calculate_derived_measurements_from_form(manual_values):
+    """Calculate derived measurement values from form input."""
     aorta_raiz = float(manual_values.get('measurement_fc2afb5f-6110-4714-8b0d-4455696bbb10') or 0)
     atrio_esquerdo = float(manual_values.get('measurement_ea1bd53d-a826-4815-972e-a2801a1b99e0') or 0)
     dvd = float(manual_values.get('measurement_7051b7b6-841b-4e98-a539-3601578dcfe1') or 0)
@@ -231,16 +229,18 @@ def calculate_derived_measurements_from_form(manual_values):
     )
     return derived_values
 
-from reports.models import ReportBlock, CustomOption
-from reports.forms import ReportBlockFormSet
+# ------------------------------------------------------------------------------
+# ✏️ Edit Existing Descriptive Report
+# ------------------------------------------------------------------------------
 
 def edit_descriptive_report(request, report_id):
+    """Edit the descriptive block section of an existing report."""
     report = get_object_or_404(Report, id=report_id)
 
-    # 🔽 Step 1: Load the block categories
+    # Load the block categories
     categories = CustomOptionCategory.objects.all().order_by('name')
 
-    # 🔽 Step 2: Load the options (grouped by category name)
+    # Load the options (grouped by category name)
     custom_options = CustomOption.objects.select_related('category').all().order_by('category__name')
     grouped_options = {}
     for option in custom_options:
@@ -288,3 +288,106 @@ def edit_descriptive_report(request, report_id):
         'section': 'edit_descriptive_report'
     }
     return render(request, 'reports/report.html', context)
+
+# ------------------------------------------------------------------------------
+# ⚡ HTMX Views (Partial Responses)
+# ------------------------------------------------------------------------------
+
+def hx_paciente(request):
+    """HTMX partial: patient and appointment data."""
+    patient_form = PatientForm()
+    appointment_form = AppointmentForm(initial={'date': timezone.now()})
+    html = render_to_string('reports/partials/paciente.html', {
+        'patient_form': patient_form,
+        'appointment_form': appointment_form
+    }, request=request)
+    return HttpResponse(html)
+
+def hx_numerico(request):
+    """HTMX partial: numeric report."""
+    measurement_form = ReportMeasurementForm()
+    html = render_to_string('reports/partials/numerico.html', {
+        'measurement_form': measurement_form
+    }, request=request)
+    return HttpResponse(html)
+
+def hx_descritivo(request):
+    """HTMX partial: descriptive report and shortcuts."""
+    categories = CustomOptionCategory.objects.all().order_by('order_index')
+    ReportBlockFormSet = modelformset_factory(ReportBlock, fields=('content',), extra=len(categories))
+    formset = ReportBlockFormSet(queryset=ReportBlock.objects.none())
+
+    for form, category in zip(formset.forms, categories):
+        form.instance.title = category.name
+        form.instance.order_index = category.order_index
+
+    combined_blocks = list(zip(formset.forms, categories))
+    custom_options = CustomOption.objects.select_related('category').all().order_by('category__name')
+    grouped_options = {}
+    for option in custom_options:
+        grouped_options.setdefault(option.category.id, []).append(option)
+
+    html = render_to_string('reports/partials/descritivo.html', {
+        'formset': formset,
+        'combined_blocks': combined_blocks,
+        'grouped_options': grouped_options
+    }, request=request)
+    return HttpResponse(html)
+
+# ------------------------------------------------------------------------------
+# ✏️ Generate PDF
+# ------------------------------------------------------------------------------
+def generate_report_pdf(request, report_id):
+    """Generate PDF for the finalized report."""
+    
+    # Buscar o relatório no banco de dados
+    report = get_object_or_404(Report, id=report_id)
+    patient = report.patient
+    appointment = report.appointment
+    measurements = ReportMeasurement.objects.filter(report=report_id)
+    report_blocks = ReportBlock.objects.filter(report=report_id).exclude(content__exact='')
+
+    # Dividir as medições
+    structural_measurements = measurements[:7]  # Primeiros 7 para Parâmetros Estruturais
+    ventricular_functions = measurements[7:]    # Restantes para Funções Ventriculares
+
+    # Preencher o contexto com os dados do paciente, medições e blocos descritivos
+    context = {
+        "patient_name": patient.name,
+        "patient_birth_date": patient.birth_date.strftime("%d/%m/%Y"),
+        "patient_cpf": patient.cpf,
+        "report_date": report.created_at.strftime("%d/%m/%Y"),
+        "appointment_procedure": appointment.procedure,
+        "appointment_health_insurance": appointment.health_insurance,
+        "appointment_date": appointment.date.strftime("%d/%m/%Y"),
+        "appointment_requester": appointment.requester,
+
+        # Passando as medições divididas para o template
+        "structural_measurements": structural_measurements,
+        "ventricular_functions": ventricular_functions,
+        
+        # Blocos descritivos (que são preenchidos dinamicamente com os campos do formulário)
+        "report_blocks": report_blocks,
+        
+        # Outros dados adicionais
+        "parametros_descritivos": {},
+        "final_observations": "Exame realizado com Doppler Espectral e Mapeamento de Fluxo em Cores."
+    }
+
+    # Gerar o conteúdo HTML a partir do template
+    html_content = render_to_string("pdf/pdf_report_template.html", context)
+
+    # Criar o buffer PDF
+    pdf_buffer = BytesIO()
+    pisa_status = pisa.CreatePDF(html_content, dest=pdf_buffer)
+
+    if pisa_status.err:
+        return HttpResponse("Erro ao gerar o PDF", status=500)
+
+    # Retornar o PDF como resposta HTTP
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = "inline; filename=Laudo_Ecocardiografico.pdf"
+    pdf_buffer.seek(0)
+    response.write(pdf_buffer.read())
+
+    return response

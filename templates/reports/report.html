@@ -1,139 +1,290 @@
-<!DOCTYPE html>
-<html lang="pt-br">
+{% extends 'base.html' %}
+
+{% block content %}
 {% load dict_extras %}
 {% load widget_tweaks %}
 
-<head>
-  <meta charset="UTF-8">
-  <title>Laudo Ecocardiográfico</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-    }
-    h1 {
-      margin-bottom: 40px;
-    }
-    h2 {
-      margin-top: 30px;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 10px;
-    }
-    form {
-      margin-bottom: 30px;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-    }
-    input, select {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-    }
-    button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      cursor: pointer;
-    }
-    .divider {
-      margin: 40px 0;
-      border-top: 2px dashed #ccc;
-    }
-    .derived-value {
-      margin-bottom: 8px;
-    }
-    .derived-label {
-      font-weight: bold;
-    }
-  </style>
-</head>
-<body>
-
-  <h1>Preencher Laudo Ecocardiográfico</h1>
+  <div role="tablist" class="flex border-b-2 border-blue-600 mb-6 w-full">
+    <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-white text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('paciente')">Dados do Paciente</a>
+    <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-gray-100 text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('numerico')">Laudo Numérico</a>
+    <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-gray-100 text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('descritivo')">Laudo Descritivo</a>
+  </div>
 
   <form method="post" action="{% url 'reports:create_report' %}">
     {% csrf_token %}
-
-    <!-- Seção 1: Dados do Paciente -->
-    <h2>1. Dados do Paciente</h2>
-    {{ patient_form.as_p }}
-
-    <div class="divider"></div>
-
-    <!-- Seção 2: Dados da Consulta -->
-    <h2>2. Dados da Consulta</h2>
-    {{ appointment_form.as_p }}
-
-    <div class="divider"></div>
-
-    <!-- Seção 3: Laudo Numérico -->
-    <h2>3. Laudo Numérico</h2>
-    {% for field in measurement_form %}
-      <div>
-        {{ field.label_tag }}
-        {{ field|add_class:"manual-measurement" }}
-        {% if field.help_text %}
-          <small>{{ field.help_text }}</small>
-        {% endif %}
-        {% if field.errors %}
-          <div style="color: red;">{{ field.errors }}</div>
-        {% endif %}
-      </div>
-    {% endfor %}
-
-    <div class="divider"></div>
-
-    <!-- Seção 4: Cálculos Derivados (Preview) -->
-    <h2>4. Cálculos Derivados (Preview)</h2>
-    <div>
-      <label>Fração de Ejeção (Teicholz):</label>
-      <span id="fracaoEjecaoTeicholz_result">0.00 %</span>
-    </div>
-
-    <div>
-      <label>Massa Ventricular Esquerda:</label>
-      <span id="massaVE_result">0.00 g</span>
-    </div>
-
-    <div>
-      <label>VE(d) / Altura:</label>
-      <span id="ved_altura_result">0.00</span>
-    </div>
-
-    <div class="divider"></div>
-
-    <!-- Seção 5: Laudo Descritivo -->
-    <h2>5. Laudo Descritivo</h2>
-    {% if combined_blocks %}
-      <div>
-        {{ formset.management_form }}
-        {% for form, category in combined_blocks %}
-          <div class="report-block">
-            <h4>{{ category.name }}</h4>
-            {{ form.id }}
-            {{ form.content|add_class:"manual-report-block" }}
-
-            {% with grouped_options|get_item:category.id as options %}
-              {% if options %}
-                <div class="shortcut-options">
-                  <strong>Atalhos:</strong>
-                  {% for option in options %}
-                    <button type="button" class="btn btn-outline-secondary btn-sm insert-option"
-                            data-target-id="{{ form.content.id_for_label }}"
-                            data-text="{{ option.text }}">
-                      {{ option.shortcut_key }} — {{ option.text|truncatechars:50 }}
-                    </button>
-                  {% endfor %}
-                </div>
+    <div id="tab-content-paciente">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-blue-100 p-6 rounded-xl shadow mb-8 border border-blue-400">
+          <h2 class="text-xl font-bold mb-4">🩺 Dados do Paciente</h2>
+        <div class="grid grid-cols-12 gap-4">
+          {% for field in patient_form %}
+            {% with label=field.label|dict_translate %}
+              {% if label == "Nome" %}
+                {% with col_span="col-span-12" %}
+                  <div class="{{ col_span }}">
+                    <label class="label">
+                      <span class="label-text">{{ label }}</span>
+                    </label>
+                    {{ field|add_class:"input input-bordered w-full text-sm py-1.5 bg-white" }}
+                    {% if field.help_text %}
+                      <label class="label">
+                        <span class="label-text-alt">{{ field.help_text }}</span>
+                      </label>
+                    {% endif %}
+                    {% if field.errors %}
+                      <label class="label">
+                        <span class="label-text-alt text-error">{{ field.errors }}</span>
+                      </label>
+                    {% endif %}
+                  </div>
+                  {% if label == "Peso" %}
+                  <div class="col-span-4 sm:col-span-3 flex items-end">
+                    <div>
+                      <label class="label">
+                        <span class="label-text">Superfície Corporal</span>
+                      </label>
+                      <div class="text-sm font-semibold mb-2 px-2" id="bsa_result">-- m²</div>
+                    </div>
+                  </div>
+                  {% endif %}
+                {% endwith %}
+              {% elif label == "Sexo" %}
+                {% with col_span="col-span-4 sm:col-span-3" %}
+                  <div class="{{ col_span }}">
+                    <label class="label">
+                      <span class="label-text">{{ label }}</span>
+                    </label>
+                    {{ field|add_class:"input input-bordered w-full text-sm py-1.5 bg-white" }}
+                    {% if field.help_text %}
+                      <label class="label">
+                        <span class="label-text-alt">{{ field.help_text }}</span>
+                      </label>
+                    {% endif %}
+                    {% if field.errors %}
+                      <label class="label">
+                        <span class="label-text-alt text-error">{{ field.errors }}</span>
+                      </label>
+                    {% endif %}
+                  </div>
+                {% endwith %}
+              {% elif label == "Altura" or label == "Peso" %}
+                {% with col_span="col-span-4 sm:col-span-2" %}
+                  <div class="{{ col_span }}">
+                    <label class="label">
+                      <span class="label-text">{{ label }}</span>
+                    </label>
+                    {{ field|add_class:"input input-bordered w-full text-sm py-1.5 bg-white" }}
+                    {% if field.help_text %}
+                      <label class="label">
+                        <span class="label-text-alt">{{ field.help_text }}</span>
+                      </label>
+                    {% endif %}
+                    {% if field.errors %}
+                      <label class="label">
+                        <span class="label-text-alt text-error">{{ field.errors }}</span>
+                      </label>
+                    {% endif %}
+                  </div>
+                {% endwith %}
+              {% elif label == "Data de Nasc." %}
+                {% with col_span="col-span-4 sm:col-span-3" %}
+                  <div class="{{ col_span }}">
+                    <label class="label">
+                      <span class="label-text">{{ label }}</span>
+                    </label>
+                    {{ field|add_class:"input input-bordered w-full text-sm py-1.5 bg-white" }}
+                    {% if field.help_text %}
+                      <label class="label">
+                        <span class="label-text-alt">{{ field.help_text }}</span>
+                      </label>
+                    {% endif %}
+                    {% if field.errors %}
+                      <label class="label">
+                        <span class="label-text-alt text-error">{{ field.errors }}</span>
+                      </label>
+                    {% endif %}
+                  </div>
+                {% endwith %}
+              {% elif label == "CPF" or label == "Contato" %}
+                {% with col_span="col-span-4 sm:col-span-3" %}
+                  <div class="{{ col_span }}">
+                    <label class="label">
+                      <span class="label-text">{{ label }}</span>
+                    </label>
+                    {{ field|add_class:"input input-bordered w-full text-sm py-1.5 bg-white" }}
+                    {% if field.help_text %}
+                      <label class="label">
+                        <span class="label-text-alt">{{ field.help_text }}</span>
+                      </label>
+                    {% endif %}
+                    {% if field.errors %}
+                      <label class="label">
+                        <span class="label-text-alt text-error">{{ field.errors }}</span>
+                      </label>
+                    {% endif %}
+                  </div>
+                {% endwith %}
+              {% else %}
+                {% with col_span="col-span-12 sm:col-span-6" %}
+                  <div class="{{ col_span }}">
+                    <label class="label">
+                      <span class="label-text">{{ label }}</span>
+                    </label>
+                    {{ field|add_class:"input input-bordered w-full text-sm py-1.5 bg-white" }}
+                    {% if field.help_text %}
+                      <label class="label">
+                        <span class="label-text-alt">{{ field.help_text }}</span>
+                      </label>
+                    {% endif %}
+                    {% if field.errors %}
+                      <label class="label">
+                        <span class="label-text-alt text-error">{{ field.errors }}</span>
+                      </label>
+                    {% endif %}
+                  </div>
+                {% endwith %}
               {% endif %}
             {% endwith %}
-          </div>
-        {% endfor %}
+          {% endfor %}
+        </div>
       </div>
-    {% endif %}
 
-    <button type="submit">Salvar Laudo Completo</button>
+      <div class="bg-blue-100 p-6 rounded-xl shadow mb-8 border border-blue-500">
+        <h2 class="text-xl font-bold mb-4">📅 Dados da Consulta</h2>
+        <div class="grid grid-cols-12 gap-4">
+          {% for field in appointment_form %}
+            {% with label=field.label|dict_translate %}
+              {% if label == "Observações" %}
+                {% with col_span="col-span-12" %}
+                  <div class="{{ col_span }}">
+                    <label class="label">
+                      <span class="label-text">{{ label }}</span>
+                    </label>
+                    {{ field|add_class:"input input-bordered w-full text-sm py-1.5 bg-white" }}
+                    {% if field.help_text %}
+                      <label class="label">
+                        <span class="label-text-alt">{{ field.help_text }}</span>
+                      </label>
+                    {% endif %}
+                    {% if field.errors %}
+                      <label class="label">
+                        <span class="label-text-alt text-error">{{ field.errors }}</span>
+                      </label>
+                    {% endif %}
+                  </div>
+                {% endwith %}
+              {% else %}
+                {% with col_span="col-span-6" %}
+                  <div class="{{ col_span }}">
+                    <label class="label">
+                      <span class="label-text">{{ label }}</span>
+                    </label>
+                    {{ field|add_class:"input input-bordered w-full text-sm py-1.5 bg-white" }}
+                    {% if field.help_text %}
+                      <label class="label">
+                        <span class="label-text-alt">{{ field.help_text }}</span>
+                      </label>
+                    {% endif %}
+                    {% if field.errors %}
+                      <label class="label">
+                        <span class="label-text-alt text-error">{{ field.errors }}</span>
+                      </label>
+                    {% endif %}
+                  </div>
+                {% endwith %}
+              {% endif %}
+            {% endwith %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div> <!-- Fecha .grid -->
+</div> <!-- Fecha #tab-content-paciente -->
+    <div id="tab-content-numerico" class="hidden">
+      <div class="grid grid-cols-12 gap-6">
+        <div class="col-span-12 lg:col-span-8 bg-blue-100 p-6 rounded-xl border border-blue-400">
+          <h2 class="text-lg font-bold mb-4">📏 Medidas Manuais</h2>
+           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% for field in measurement_form %}
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }}</label>
+                <div class="flex items-center gap-2">
+                  {{ field|add_class:"input input-bordered bg-white w-32 text-sm manual-measurement" }}
+                  <span class="text-sm text-gray-500 whitespace-nowrap">mm</span>
+                  {% if field.help_text %}
+                    <span class="ml-4 text-lg" id="check_{{ field.auto_id }}"></span>
+                    <span class="text-xs text-gray-400 whitespace-nowrap ml-2"> {{ field.help_text }}</span>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-4 bg-blue-100 p-6 rounded-xl border border-blue-400 shadow-md">
+          <h2 class="text-lg font-bold mb-4">🧮 Cálculos Derivados</h2>
+          <div class="space-y-4 text-sm divide-y divide-blue-200">
+            <div class="flex justify-between items-center pt-1">
+              <span class="flex items-center gap-2 text-gray-700"><span>🫀</span>Fração de Ejeção (Teicholz)</span>
+              <span id="fracaoEjecaoTeicholz_result" class="text-blue-700 font-semibold">0.00 %</span>
+            </div>
+            <div class="flex justify-between items-center pt-1">
+              <span class="flex items-center gap-2 text-gray-700"><span>⚖️</span>Massa Ventricular Esquerda</span>
+              <span id="massaVE_result" class="text-blue-700 font-semibold">0.00 g</span>
+            </div>
+            <div class="flex justify-between items-center pt-1">
+              <span class="flex items-center gap-2 text-gray-700"><span>📏</span>VE(d) / Altura</span>
+              <span id="ved_altura_result" class="text-blue-700 font-semibold">0.00</span>
+            </div>
+          </div>
+        </div>
+      </div> <!-- fecha grid-cols-12 -->
+
+    </div>
+
+    <div id="tab-content-descritivo" class="hidden">
+      <!-- Seção 5: Laudo Descritivo -->
+      {% if combined_blocks %}
+        <div class="space-y-6">
+          {{ formset.management_form }}
+          {% for form, category in combined_blocks %}
+            <div class="bg-white p-4 rounded-xl border border-gray-300 shadow-sm">
+              <div class="flex justify-between items-center mb-2">
+                <h4 class="font-semibold text-gray-800 text-base">{{ category.name }}</h4>
+                <button type="button"
+                        onclick="document.getElementById('{{ form.content.id_for_label }}').value='';"
+                        class="btn btn-xs btn-outline text-gray-600">🧹 Limpar</button>
+              </div>
+              <div class="flex flex-col lg:flex-row gap-4 items-start">
+                <div class="w-full lg:w-1/2">
+                  <input type="hidden" name="{{ form.id.name }}" value="{{ form.id.value }}">
+                  {{ form.content|add_class:"manual-report-block bg-gray-50 w-full p-2 text-sm rounded-md border border-gray-300 resize-y min-h-[32px] h-[80px]" }}
+                </div>
+ 
+                {% with grouped_options|get_item:category.id as options %}
+                  {% if options %}
+                    <div class="w-full lg:w-3/5 grid grid-cols-2 gap-2 pr-2">
+                      {% for option in options %}
+                        <button type="button" class="btn btn-outline btn-sm insert-option text-left"
+                                data-target-id="{{ form.content.id_for_label }}"
+                                data-text="{{ option.text }}">
+                          {{ option.shortcut_key }} — {{ option.text|truncatechars:60 }}
+                        </button>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="mt-6">
+          <button type="submit" class="btn btn-primary w-full">Salvar Laudo Completo</button>
+        </div>
+      {% endif %}
+    </div>
+
+
 
   </form>
 
@@ -170,10 +321,54 @@ function calcularDerivados() {
     document.getElementById('ved_altura_result').innerText = vedAltura.toFixed(2);
 }
 
+function verificarReferencias() {
+  document.querySelectorAll('.manual-measurement').forEach(input => {
+    const helpText = input.closest('div').querySelector('span.text-xs')?.innerText;
+    const indicator = document.getElementById('check_' + input.id);
+    if (!helpText || !indicator) return;
+
+    const match = helpText.match(/(\d+\.?\d*)\s*[–-]\s*(\d+\.?\d*)/);
+    const valor = parseFloat(input.value);
+
+    if (match && !isNaN(valor)) {
+      const min = parseFloat(match[1]);
+      const max = parseFloat(match[2]);
+      if (valor >= min && valor <= max) {
+        indicator.textContent = '✅';
+        indicator.classList.remove('text-yellow-500');
+        indicator.classList.add('text-green-500');
+      } else {
+        indicator.textContent = '⚠️';
+        indicator.classList.remove('text-green-500');
+        indicator.classList.add('text-yellow-500');
+      }
+    } else {
+      indicator.textContent = '';
+    }
+  });
+}
+
 // Adiciona eventos nos inputs manuais
 document.querySelectorAll('.manual-measurement').forEach(input => {
-    input.addEventListener('input', calcularDerivados);
+    input.addEventListener('input', () => {
+      calcularDerivados();
+      verificarReferencias();
+    });
 });
+
+function showTab(tab) {
+  document.querySelectorAll('[id^="tab-content"]').forEach(div => div.classList.add('hidden'));
+  document.getElementById('tab-content-' + tab).classList.remove('hidden');
+
+  document.querySelectorAll('.tab-button').forEach(t => {
+    t.classList.remove('bg-white', 'border', 'border-blue-600', 'shadow-sm', 'border-b-white');
+    t.classList.add('bg-gray-100', 'border', 'border-transparent');
+  });
+
+  const activeTab = document.querySelector(`[onclick="showTab('${tab}')"]`);
+  activeTab.classList.remove('bg-gray-100', 'border', 'border-transparent');
+  activeTab.classList.add('bg-white', '-mb-[2px]', 'border', 'border-blue-600', 'border-b-white', 'shadow-sm', 'pb-[7px]');
+}
 </script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
@@ -215,8 +410,10 @@ document.querySelectorAll('.manual-measurement').forEach(input => {
   
               this.value = lines.join('\n');
               break;
+
             }
           }
+          
         }
       });
     });
@@ -234,8 +431,21 @@ document.querySelectorAll('.manual-measurement').forEach(input => {
         }
       });
     });
+    // Habilita navegação entre textareas com Tab
+    document.querySelectorAll('#tab-content-descritivo textarea').forEach((textarea, index, allTextareas) => {
+      textarea.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab' && !e.shiftKey) {
+          e.preventDefault();
+          let nextIndex = index + 1;
+          if (nextIndex < allTextareas.length) {
+            allTextareas[nextIndex].focus();
+          } else {
+            allTextareas[0].focus(); // volta para o primeiro se estiver no último
+          }
+        }
+      });
+    });
   });
-  </script>
+</script>
 
-</body>
-</html>
+{% endblock %}

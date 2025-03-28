@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'accounts',
     'reports',
     'widget_tweaks',
+    'tailwind',
 ]
 
 MIDDLEWARE = [
@@ -62,6 +63,10 @@ ROOT_URLCONF = 'heartbeat.urls'
 import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "static"),
+]
 
 TEMPLATES = [
     {

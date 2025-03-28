@@ -1,0 +1,113 @@
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-top: 20px;
+        }
+        .section h2 {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            position: relative;
+        }
+        .section h2::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #d3d3d3; /* Gray color */
+        }
+        .content {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .measurement-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .measurement-list li {
+            margin: 5px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            text-align: center;
+        }
+        .bold {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <h1>Laudo de Ecodopplercardiograma</h1>
+        <p><strong>Paciente:</strong> {{ patient_name }} | <strong>Data de Nasc.:</strong> {{ patient_birth_date }} | <strong>Idade:</strong> {{ patient_age }} anos | <strong>Convênio:</strong> {{ appointment_health_insurance }}</p>
+        <p><strong>Exame:</strong> {{ appointment_procedure }} | <strong>Data:</strong> {{ appointment_date }} | <strong>Solicitado por:</strong> {{ appointment_requester }} | <strong>Registro:</strong> {{ registration }}</p>
+    </div>
+
+    <!-- Dados do Exame -->
+    <div class="section">
+        <h2>Dados do Exame</h2>
+        <p><strong>Altura:</strong> {{ height }} cm | <strong>Peso:</strong> {{ weight }} kg | <strong>Superfície Corporal:</strong> {{ surface_area }} m²</p>
+    </div>
+
+    <!-- Parâmetros Estruturais -->
+    <div class="section">
+        <h2>Parâmetros Estruturais</h2>
+        <ul class="measurement-list">
+            {% for measurement in structural_measurements %}
+                <p><strong>{{ measurement.measurement_type.name }}:</strong> {{ measurement.value }} {{ measurement.unit }}</p>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Funções Ventriculares -->
+    <div class="section">
+        <h2>Funções Ventriculares</h2>
+        <ul class="measurement-list">
+            {% for measurement in ventricular_functions %}
+                <p><strong>{{ measurement.measurement_type.name }}:</strong> {{ measurement.value }} | Ref: {{ measurement.reference }}</p>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Parâmetros Descritivos -->
+    <div class="section">
+        <h2>Parâmetros Descritivos</h2>
+        {% for block in report_blocks %}
+            <p><strong>{{ block.title }}:</strong><br><br>{{ block.content|linebreaksbr }}</p>
+        {% endfor %}
+    </div>
+
+    <!-- Observações e Impressão Diagnóstica -->
+    <div class="section">
+        <h2>Observações</h2>
+        <div class="content">
+            <p>{{ observations }}</p>
+        </div>
+
+        <h2>Impressão Diagnóstica</h2>
+        <div class="content">
+            <p>{{ diagnostic_impression }}</p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p><strong>Assinatura:</strong> Dr. {{ doctor_name }} - CRM {{ doctor_crm }}</p>
+    </div>
+
+</body>
+</html>
