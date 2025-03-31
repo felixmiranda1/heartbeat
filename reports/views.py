@@ -32,9 +32,9 @@ def create_report(request):
 
         if patient_form.is_valid() and appointment_form.is_valid() and measurement_form.is_valid():
             manual_values = measurement_form.cleaned_data
-            derived_values = calculate_derived_measurements_from_form(manual_values)
-
-            # Try to reuse existing patient
+            patient_values = patient_form.cleaned_data
+            derived_values = calculate_derived_measurements(manual_values, patient_values)
+                        # Try to reuse existing patient
             birth_date = patient_form.cleaned_data.get('birth_date')
             name = patient_form.cleaned_data.get('name').strip().lower()
             patient = Patient.objects.filter(birth_date=birth_date, name__iexact=name).first()
@@ -64,17 +64,6 @@ def create_report(request):
 
             # Create descriptive blocks for this report
             categories = CustomOptionCategory.objects.all().order_by('order_index')
-            created_blocks = [
-                ReportBlock.objects.create(
-                    id=uuid.uuid4(),
-                    report=report,
-                    title=cat.name,
-                    order_index=cat.order_index,
-                    created_at=timezone.now(),
-                    updated_at=timezone.now()
-                )
-                for cat in categories
-            ]
 
             # Fill in descriptive blocks using formset
             ReportBlockFormSet = modelformset_factory(ReportBlock, fields=('content',), extra=0)
@@ -149,8 +138,13 @@ def create_report(request):
 # 🧠 Calculations
 # ------------------------------------------------------------------------------
 
-def calculate_derived_measurements_from_form(manual_values):
+def calculate_derived_measurements(manual_values, patient_values):
     """Calculate derived measurement values from form input."""
+
+    altura_cm = float(patient_values.get('height') or 0)
+    peso_kg = float(patient_values.get('weight') or 0)
+    altura_m = altura_cm / 100 if altura_cm > 3 else altura_cm  # Evita erro se já estiver em metros
+
     aorta_raiz = float(manual_values.get('measurement_fc2afb5f-6110-4714-8b0d-4455696bbb10') or 0)
     atrio_esquerdo = float(manual_values.get('measurement_ea1bd53d-a826-4815-972e-a2801a1b99e0') or 0)
     dvd = float(manual_values.get('measurement_7051b7b6-841b-4e98-a539-3601578dcfe1') or 0)
@@ -161,71 +155,78 @@ def calculate_derived_measurements_from_form(manual_values):
 
     derived_values = {}
 
-    # Left Atrium Volume / BSA
-    derived_values['d8a8dbd0-c50c-42ff-b81b-e8cd2a32157f'] = atrio_esquerdo * 0.6 if atrio_esquerdo else None
-
-    # LVEDV / BSA
-    derived_values['726c5c78-1404-464b-8372-6a40128782b6'] = diastole_final_ve * 0.9 if diastole_final_ve else None
-
-    # LVEDV / Height
-    derived_values['bc89d090-a6fb-4f59-a89c-1cc8fc56aba2'] = diastole_final_ve / 1.7 if diastole_final_ve else None
-
-    # End-Diastolic Volume
-    derived_values['6db01c09-ea55-428d-a9d3-fb4c812e3b7f'] = diastole_final_ve * 1.2 if diastole_final_ve else None
-
-    # End-Systolic Volume
-    derived_values['3cb036a2-bc21-4124-b607-dc9b1b6245e0'] = sistole_final_ve * 1.2 if sistole_final_ve else None
-
-    # Ejection Fraction (Teicholz)
-    derived_values['9c28deef-78d5-47aa-9fd2-218fbccb1eeb'] = (
-        ((diastole_final_ve - sistole_final_ve) / diastole_final_ve * 100)
-        if diastole_final_ve > 0 else None
+    # Superfície Corporal (Du Bois & Du Bois)
+    sc = (
+        0.007184 * (peso_kg ** 0.425) * (altura_cm ** 0.725)
+        if altura_cm and peso_kg else None
     )
 
-    # Ejection Fraction (Simpson)
+    # Volume do AE / SC
+    derived_values['d8a8dbd0-c50c-42ff-b81b-e8cd2a32157f'] = (
+        atrio_esquerdo / sc if atrio_esquerdo and sc else None
+    )
+
+    # VE(d) / SC
+    derived_values['726c5c78-1404-464b-8372-6a40128782b6'] = (
+        diastole_final_ve / sc if diastole_final_ve and sc else None
+    )
+
+    # VE(d) / altura
+    derived_values['bc89d090-a6fb-4f59-a89c-1cc8fc56aba2'] = (
+        diastole_final_ve / altura_m if diastole_final_ve and altura_m else None
+    )
+
+    # Volume Diastólico Final (Simpson)
+    derived_values['6db01c09-ea55-428d-a9d3-fb4c812e3b7f'] = diastole_final_ve if diastole_final_ve else None
+
+    # Volume Sistólico Final (Simpson)
+    derived_values['3cb036a2-bc21-4124-b607-dc9b1b6245e0'] = sistole_final_ve if sistole_final_ve else None
+
+    # Fração de Ejeção (Simpson)
     derived_values['facaa610-84b8-47a3-9db2-13065b31fa94'] = (
         ((diastole_final_ve - sistole_final_ve) / diastole_final_ve * 100)
         if diastole_final_ve > 0 else None
     )
 
-    # Percent Shortening
+    # Fração de Ejeção (Teichholz)
+    derived_values['9c28deef-78d5-47aa-9fd2-218fbccb1eeb'] = (
+        ((diastole_final_ve - sistole_final_ve) / diastole_final_ve * 100)
+        if diastole_final_ve > 0 else None
+    )
+
+    # Encurtamento da Cavidade (%)
     derived_values['96f07bcc-8336-434a-8e1c-12d57e9b822a'] = (
         ((diastole_final_ve - sistole_final_ve) / diastole_final_ve * 100)
         if diastole_final_ve > 0 else None
     )
 
-    # Left Ventricular Mass
-    derived_values['70d430a4-23a9-4690-8523-31a693bc4ec5'] = (
-        0.8 * (diastole_final_ve + septo + parede_posterior)**3
+    # Massa Ventricular Esquerda (g)
+    mve = (
+        0.8 * 1.04 * ((septo + diastole_final_ve + parede_posterior) ** 3 - diastole_final_ve ** 3) + 0.6
         if diastole_final_ve and septo and parede_posterior else None
     )
+    derived_values['70d430a4-23a9-4690-8523-31a693bc4ec5'] = mve
 
-    # LV Mass / BSA
+    # MVE / SC
     derived_values['f391f7ed-f21c-4d79-a51a-766262958d57'] = (
-        0.8 * (diastole_final_ve + septo + parede_posterior)**3 / 1.7
-        if diastole_final_ve and septo and parede_posterior else None
+        mve / sc if mve and sc else None
     )
 
-    # LV Mass / Height
+    # MVE / altura
     derived_values['fb0db8fa-9976-4b31-ae04-23277d07d67c'] = (
-        0.8 * (diastole_final_ve + septo + parede_posterior)**3 / 1.7
-        if diastole_final_ve and septo and parede_posterior else None
+        mve / altura_m if mve and altura_m else None
     )
 
-    # Relative Wall Thickness
-    derived_values['84540bfa-2749-4e9c-bec1-f7689616caac'] = (
+    # Espessura Relativa das Paredes (ERP)
+    erp = (
         (2 * parede_posterior) / diastole_final_ve
         if parede_posterior and diastole_final_ve else None
     )
+    derived_values['84540bfa-2749-4e9c-bec1-f7689616caac'] = erp
 
-    # RWT and LV Mass Ratio
-    massa_ve = (
-        0.8 * (diastole_final_ve + septo + parede_posterior)**3
-        if diastole_final_ve and septo and parede_posterior else None
-    )
+    # Relação ERP / MVE indexada
     derived_values['c1e484a6-4441-4126-98e3-0b00dd90236b'] = (
-        ((2 * parede_posterior) / diastole_final_ve) / massa_ve
-        if parede_posterior and diastole_final_ve and massa_ve else None
+        erp / (mve / sc) if erp and mve and sc else None
     )
     return derived_values
 
@@ -391,3 +392,71 @@ def generate_report_pdf(request, report_id):
     response.write(pdf_buffer.read())
 
     return response
+
+from django.views.decorators.csrf import csrf_exempt
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def calcular_derive_htmx(request):
+    if request.method == 'POST':
+        altura_cm = float(request.POST.get('height') or 0)
+        peso_kg = float(request.POST.get('weight') or 0)
+        print("🔍 Dados recebidos via HTMX:")
+        for key, value in request.POST.items():
+            print(f"{key}: {value}")
+        manual_values = {
+        'measurement_7afa3a2b-d414-4fa0-8d82-b941f3f7db36': float(request.POST.get('diastole_final_ve') or 0),
+        'measurement_c5326b50-bf6c-46f7-bbec-15748bee04c4': float(request.POST.get('sistole_final_ve') or 0),
+        'measurement_690b176b-8163-4ce4-82d7-8df8e9df6050': float(request.POST.get('septo') or 0),
+        'measurement_846611f4-8e53-4487-83cd-1ca680a2bd48': float(request.POST.get('parede_posterior') or 0),
+        'measurement_ea1bd53d-a826-4815-972e-a2801a1b99e0': float(request.POST.get('atrio_esquerdo') or 0),
+         }
+
+        patient_values = {
+            'height': float(request.POST.get('height') or 0),
+            'weight': float(request.POST.get('weight') or 0),
+        }
+
+        derived = calculate_derived_measurements(manual_values, patient_values)
+
+        # Renderizar diretamente o HTML a ser inserido na div resultado-derivado
+        html = f"""
+        <div id="resultado-derivado" class="col-span-12 lg:col-span-4 bg-blue-100 p-6 rounded-xl border border-blue-400 shadow-md">
+        <h2 class="text-lg font-bold mb-4">🧮 Cálculos Derivados</h2>
+        <div class="space-y-4 text-sm divide-y divide-blue-200">
+            {"".join([
+            f'''
+            <div class="flex justify-between items-center pt-1">
+                <span class="flex items-center gap-2 text-gray-700">{emoji} {label}</span>
+                <span class="text-blue-700 font-semibold">
+                {f"{derived[key]:.2f} {unit}" if derived.get(key) is not None else "--"}
+                </span>
+            </div>
+            ''' for key, label, emoji, unit in [
+                ("d8a8dbd0-c50c-42ff-b81b-e8cd2a32157f", "Volume do AE / SC", "🫀", "mL/m²"),
+                ("726c5c78-1404-464b-8372-6a40128782b6", "VE(d) / SC", "📐", "mm/m²"),
+                ("bc89d090-a6fb-4f59-a89c-1cc8fc56aba2", "VE(d) / Altura", "📏", ""),
+                ("6db01c09-ea55-428d-a9d3-fb4c812e3b7f", "Volume Diastólico Final", "🫁", "mL"),
+                ("3cb036a2-bc21-4124-b607-dc9b1b6245e0", "Volume Sistólico Final", "🫁", "mL"),
+                ("facaa610-84b8-47a3-9db2-13065b31fa94", "Fração de Ejeção (Simpson)", "🔃", "%"),
+                ("9c28deef-78d5-47aa-9fd2-218fbccb1eeb", "Fração de Ejeção (Teicholz)", "🫀", "%"),
+                ("96f07bcc-8336-434a-8e1c-12d57e9b822a", "Encurtamento Cavidade", "📉", "%"),
+                ("70d430a4-23a9-4690-8523-31a693bc4ec5", "Massa Ventricular Esquerda", "⚖️", "g"),
+                ("f391f7ed-f21c-4d79-a51a-766262958d57", "MVE / SC", "📐", "g/m²"),
+                ("fb0db8fa-9976-4b31-ae04-23277d07d67c", "MVE / Altura", "📏", "g/m"),
+                ("84540bfa-2749-4e9c-bec1-f7689616caac", "Espessura Relativa das Paredes", "🧱", ""),
+                ("c1e484a6-4441-4126-98e3-0b00dd90236b", "ERP / MVE indexada", "📊", ""),
+            ]
+            ])}
+        </div>
+        </div>
+
+        """
+
+        return HttpResponse(html)
+    else:
+        return HttpResponse("Método não suportado", status=405)

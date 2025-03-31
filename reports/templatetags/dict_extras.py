@@ -21,7 +21,7 @@ label_translations = {
     "Clinic": "Clínica",
     "Professional": "Profissional",
     "Procedure": "Procedimento",
-    "Health insurance": "Operadora",
+    "Health insurance": "Convênio",
     "Insurance plan": "Plano de Saúde",
     "Requester": "Solicitante",
     "Observations": "Observações",

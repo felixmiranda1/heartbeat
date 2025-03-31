@@ -5,7 +5,7 @@
 {% load widget_tweaks %}
 
   <div role="tablist" class="flex border-b-2 border-blue-600 mb-6 w-full">
-    <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-white text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('paciente')">Dados do Paciente</a>
+    <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-white text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('paciente')">Dados</a>
     <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-gray-100 text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('numerico')">Laudo Numérico</a>
     <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-gray-100 text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('descritivo')">Laudo Descritivo</a>
   </div>
@@ -221,22 +221,10 @@
           </div>
         </div>
 
-        <div class="col-span-12 lg:col-span-4 bg-blue-100 p-6 rounded-xl border border-blue-400 shadow-md">
-          <h2 class="text-lg font-bold mb-4">🧮 Cálculos Derivados</h2>
-          <div class="space-y-4 text-sm divide-y divide-blue-200">
-            <div class="flex justify-between items-center pt-1">
-              <span class="flex items-center gap-2 text-gray-700"><span>🫀</span>Fração de Ejeção (Teicholz)</span>
-              <span id="fracaoEjecaoTeicholz_result" class="text-blue-700 font-semibold">0.00 %</span>
-            </div>
-            <div class="flex justify-between items-center pt-1">
-              <span class="flex items-center gap-2 text-gray-700"><span>⚖️</span>Massa Ventricular Esquerda</span>
-              <span id="massaVE_result" class="text-blue-700 font-semibold">0.00 g</span>
-            </div>
-            <div class="flex justify-between items-center pt-1">
-              <span class="flex items-center gap-2 text-gray-700"><span>📏</span>VE(d) / Altura</span>
-              <span id="ved_altura_result" class="text-blue-700 font-semibold">0.00</span>
-            </div>
-          </div>
+        <div id="resultado-derivado" class="col-span-12 lg:col-span-4 bg-blue-50 p-6 rounded-xl border border-blue-300 shadow-sm text-sm text-gray-500">
+          Preencha os campos ao lado para ver os cálculos derivados...
+        </div>
+        
         </div>
       </div> <!-- fecha grid-cols-12 -->
 
@@ -283,44 +271,51 @@
         </div>
       {% endif %}
     </div>
-
-
-
   </form>
 
   <script>
-// Função que faz os cálculos baseados nos campos preenchidos
-function calcularDerivados() {
-    // Pegando os valores dos inputs manuais
-    const diastoleFinalVe = parseFloat(document.getElementById('id_measurement_7afa3a2b-d414-4fa0-8d82-b941f3f7db36').value) || 0;
-    const sistoleFinalVe = parseFloat(document.getElementById('id_measurement_c5326b50-bf6c-46f7-bbec-15748bee04c4').value) || 0;
-    const septo = parseFloat(document.getElementById('id_measurement_690b176b-8163-4ce4-82d7-8df8e9df6050').value) || 0;
-    const paredePosterior = parseFloat(document.getElementById('id_measurement_846611f4-8e53-4487-83cd-1ca680a2bd48').value) || 0;
-
-    // 🧮 Fração de Ejeção (Teicholz)
-    let fracaoEjecaoTeicholz = 0;
-    if (diastoleFinalVe > 0) {
-        fracaoEjecaoTeicholz = ((diastoleFinalVe - sistoleFinalVe) / diastoleFinalVe) * 100;
+    function enviarParaBackend() {
+    htmx.ajax('POST', '/reports/calcular-derivados/', {
+    target: '#resultado-derivado',
+    swap: 'outerHTML',
+    values: {
+      height: document.getElementById('id_height')?.value || '',
+      weight: document.getElementById('id_weight')?.value || '',
+      diastole_final_ve: document.getElementById('id_measurement_7afa3a2b-d414-4fa0-8d82-b941f3f7db36')?.value || '',
+      sistole_final_ve: document.getElementById('id_measurement_c5326b50-bf6c-46f7-bbec-15748bee04c4')?.value || '',
+      septo: document.getElementById('id_measurement_690b176b-8163-4ce4-82d7-8df8e9df6050')?.value || '',
+      parede_posterior: document.getElementById('id_measurement_846611f4-8e53-4487-83cd-1ca680a2bd48')?.value || '',
+      atrio_esquerdo: document.getElementById('id_measurement_ea1bd53d-a826-4815-972e-a2801a1b99e0')?.value || ''
     }
-
-    // 🧮 Massa Ventricular Esquerda
-    let massaVE = 0;
-    if (diastoleFinalVe && septo && paredePosterior) {
-        massaVE = 0.8 * Math.pow((diastoleFinalVe + septo + paredePosterior), 3);
+});
     }
+    
+    // Ativar o evento nos campos de interesse
+    document.addEventListener('DOMContentLoaded', function () {
+      const campos = [
+        '#id_height',
+        '#id_weight',
+        '#id_measurement_7afa3a2b-d414-4fa0-8d82-b941f3f7db36',
+        '#id_measurement_c5326b50-bf6c-46f7-bbec-15748bee04c4',
+        '#id_measurement_690b176b-8163-4ce4-82d7-8df8e9df6050',
+        '#id_measurement_846611f4-8e53-4487-83cd-1ca680a2bd48',
+        '#id_measurement_ea1bd53d-a826-4815-972e-a2801a1b99e0',
+      ];
+    
+        campos.forEach(selector => {
+    const input = document.querySelector(selector);
+    if (input) {
+      input.addEventListener('input', () => {
+        requestAnimationFrame(() => {
+          enviarParaBackend();
+        });
+      });
+  }
+});
+    });
+    </script>
 
-    // 🧮 VE(d) / Altura (considerando altura padrão 1.7, se quiser pegar de outro campo, ajusta aqui)
-    let vedAltura = 0;
-    if (diastoleFinalVe) {
-        vedAltura = diastoleFinalVe / 1.7;
-    }
-
-    // Exibir resultados nos spans do HTML
-    document.getElementById('fracaoEjecaoTeicholz_result').innerText = fracaoEjecaoTeicholz.toFixed(2) + ' %';
-    document.getElementById('massaVE_result').innerText = massaVE.toFixed(2) + ' g';
-    document.getElementById('ved_altura_result').innerText = vedAltura.toFixed(2);
-}
-
+  <script>
 function verificarReferencias() {
   document.querySelectorAll('.manual-measurement').forEach(input => {
     const helpText = input.closest('div').querySelector('span.text-xs')?.innerText;
@@ -351,7 +346,6 @@ function verificarReferencias() {
 // Adiciona eventos nos inputs manuais
 document.querySelectorAll('.manual-measurement').forEach(input => {
     input.addEventListener('input', () => {
-      calcularDerivados();
       verificarReferencias();
     });
 });
@@ -370,6 +364,7 @@ function showTab(tab) {
   activeTab.classList.add('bg-white', '-mb-[2px]', 'border', 'border-blue-600', 'border-b-white', 'shadow-sm', 'pb-[7px]');
 }
 </script>
+
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('textarea').forEach(textarea => {

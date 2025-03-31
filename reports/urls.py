@@ -8,5 +8,6 @@ urlpatterns = [
     path('create/', views.create_report, name='create_report'),
     path('hx/paciente/', views.hx_paciente, name='patient_data'),
     path('hx/numerico/', views.hx_numerico, name='numeric_report'),
-    path('hx/descritivo/', views.hx_descritivo, name='descriptive_report')
+    path('hx/descritivo/', views.hx_descritivo, name='descriptive_report'),
+    path('calcular-derivados/', views.calcular_derive_htmx, name='calcular_derivados'),
 ]
