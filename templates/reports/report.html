@@ -8,6 +8,7 @@
     <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-white text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('paciente')">Dados</a>
     <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-gray-100 text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('numerico')">Laudo Numérico</a>
     <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-gray-100 text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('descritivo')">Laudo Descritivo</a>
+    <a role="tab" class="tab-button px-4 py-1 mb-0 border border-transparent rounded-t-md bg-gray-100 text-gray-800 font-semibold hover:border-blue-300" onclick="showTab('resumo')">Resumo Final</a>
   </div>
 
   <form method="post" action="{% url 'reports:create_report' %}">
@@ -271,10 +272,52 @@
         </div>
       {% endif %}
     </div>
+
+      <div id="tab-content-resumo"
+           class="hidden"
+           hx-post="{% url 'reports:resumo_parcial' %}"
+           hx-target="#tab-content-resumo"
+           hx-swap="innerHTML">
+
+    <div class="bg-yellow-50 p-6 rounded-xl border border-yellow-400 shadow-inner text-sm text-gray-700 space-y-4">
+      <h2 class="text-xl font-bold mb-4 text-yellow-900">📝 Resumo Final do Laudo</h2>
+      <div>
+        <ul class="list-disc list-inside" id="resumo-box">
+          {{ conteudo_do_resumo }}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+      </div>
+    </div>
   </form>
 
   <script>
-    function enviarParaBackend() {
+    function showTab(tab) {
+      // Esconde todas as abas
+      document.querySelectorAll('[id^="tab-content"]').forEach(div => {
+        div.classList.add('hidden');
+      });
+  
+      // Mostra a aba atual
+      const target = document.getElementById(`tab-content-${tab}`);
+      target.classList.remove('hidden');
+  
+      // Atualiza o estilo das tabs
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('bg-white', 'border-blue-600', 'border-b-white', 'shadow-sm');
+        btn.classList.add('bg-gray-100');
+      });
+  
+      const activeTab = document.querySelector(`[onclick="showTab('${tab}')"]`);
+      activeTab.classList.remove('bg-gray-100');
+      activeTab.classList.add('bg-white', 'border', 'border-blue-600', 'border-b-white', 'shadow-sm');
+    }
+  </script>
+
+  <script>
+    function enviarCalculosDerivadosParaBackend() {
     htmx.ajax('POST', '/reports/calcular-derivados/', {
     target: '#resultado-derivado',
     swap: 'outerHTML',
@@ -307,7 +350,7 @@
     if (input) {
       input.addEventListener('input', () => {
         requestAnimationFrame(() => {
-          enviarParaBackend();
+          enviarCalculosDerivadosParaBackend();
         });
       });
   }
@@ -443,4 +486,49 @@ function showTab(tab) {
   });
 </script>
 
+  <script>
+    function enviarResumoParaBackend() {
+      const values = {};
+  
+      document.querySelectorAll('#tab-content-descritivo textarea, #tab-content-descritivo input[type="hidden"]').forEach(el => {
+        if (el.name) {
+          values[el.name] = el.value;
+        }
+      });
+      
+      document.getElementById('tab-content-resumo').classList.remove('hidden');
+
+      htmx.ajax('POST', '/reports/resumo-parcial/', {
+        target: '#tab-content-resumo',
+        swap: 'innerHTML',
+        values: values
+      });
+    }
+  
+    
+    document.addEventListener('DOMContentLoaded', function () {
+      const campos = document.querySelectorAll('#tab-content-descritivo textarea');
+      campos.forEach(el => {
+        el.addEventListener('input', () => {
+          requestAnimationFrame(enviarResumoParaBackend);
+        });
+      });
+    });
+  </script>
+
+<script>
+  function copiarResumo() {
+    const resumoElement = document.getElementById('resumo-box');
+    const items = resumoElement.querySelectorAll('li');
+    const texto = Array.from(items).map(li => {
+      const titulo = li.querySelector('strong')?.innerText ?? '';
+      const corpo = li.querySelector('pre')?.innerText ?? '';
+      return `${titulo}\n${corpo}`;
+    }).join('\n\n');
+
+    navigator.clipboard.writeText(texto)
+      .then(() => alert('Resumo copiado para a área de transferência!'))
+      .catch(() => alert('Erro ao copiar o resumo.'));
+  }
+</script>
 {% endblock %}

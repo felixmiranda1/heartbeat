@@ -18,6 +18,11 @@ from reports.forms import (
     PatientForm, AppointmentForm, ReportMeasurementForm,
     ReportBlockFormSet, modelformset_factory
 )
+from django.views.decorators.csrf import csrf_exempt
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 
 # ------------------------------------------------------------------------------
 # 🚀 Report Creation View
@@ -393,13 +398,6 @@ def generate_report_pdf(request, report_id):
 
     return response
 
-from django.views.decorators.csrf import csrf_exempt
-from django.template.loader import render_to_string
-from django.http import HttpResponse
-
-from django.http import HttpResponse
-from django.views.decorators.csrf import csrf_exempt
-
 @csrf_exempt
 def calcular_derive_htmx(request):
     if request.method == 'POST':
@@ -460,3 +458,33 @@ def calcular_derive_htmx(request):
         return HttpResponse(html)
     else:
         return HttpResponse("Método não suportado", status=405)
+    
+from django.http import HttpResponse
+from django.utils.html import format_html
+from .forms import PatientForm, AppointmentForm, ReportMeasurementForm, ReportBlockFormSet
+@csrf_exempt
+def resumo_parcial(request):
+    if request.method == 'POST':
+        formset = ReportBlockFormSet(request.POST or None)
+        categories = CustomOptionCategory.objects.all().order_by('order_index')
+        combined_blocks = zip(formset.forms, categories)
+        html = format_html("""
+            <div class="flex justify-end mb-2">
+            <button type="button" onclick="copiarResumo()" class="btn btn-xs btn-outline text-gray-600">📋 Copiar Resumo</button>
+            </div>
+            <div id="resumo-box" class="bg-white p-4 rounded-lg border border-gray-300 shadow text-sm whitespace-pre-wrap">
+                <h2 class="text-xl font-bold mb-4 text-gray-900">📝 Resumo Final do Laudo</h2>
+                <div>
+                    <ul class="list-disc list-inside space-y-2">
+                    {}
+                    </ul>
+                </div>
+            </div>
+        """,
+        format_html(''.join(
+            f'<li><strong class="block text-sm text-gray-800 mb-1">{category.name}:</strong><pre class="whitespace-pre-wrap">{form["content"].value()}</pre></li>'
+            for form, category in combined_blocks if form["content"].value()
+        ))
+        )
+
+        return HttpResponse(html)

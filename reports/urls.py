@@ -10,4 +10,5 @@ urlpatterns = [
     path('hx/numerico/', views.hx_numerico, name='numeric_report'),
     path('hx/descritivo/', views.hx_descritivo, name='descriptive_report'),
     path('calcular-derivados/', views.calcular_derive_htmx, name='calcular_derivados'),
+    path('resumo-parcial/', views.resumo_parcial, name='resumo_parcial'),
 ]
