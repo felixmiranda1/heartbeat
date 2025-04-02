@@ -34,7 +34,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '.railway.app', '127.0.0.1', 'heartbeat-production.up.railway.app']
 
-
+CSRF_TRUSTED_ORIGINS = [
+    'https://heartbeat-production.up.railway.app'
+]
 
 # Application definition
 
