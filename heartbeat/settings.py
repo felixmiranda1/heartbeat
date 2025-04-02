@@ -109,7 +109,7 @@ WSGI_APPLICATION = 'heartbeat.wsgi.application'
 
 
 DATABASES = {
-    'default': env.db('DATABASE_URL', default='postgresql://postgres:senha@host:porta/railway?schema=heartbeat')
+    'default': env.db('DATABASE_URL', default='postgresql://postgres:YcGXMTNriRwMULoKitCcglrNEuNWEgqB@metro.proxy.rlwy.net:40515/railway?schema=heartbeat')
 }
 
 # Password validation
