@@ -14,7 +14,10 @@ from pathlib import Path
 import os
 from disable_migrations import DisableMigrations
 from dotenv import load_dotenv
+import environ
 
+env = environ.Env()
+environ.Env.read_env()
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -90,20 +93,24 @@ WSGI_APPLICATION = 'heartbeat.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'heartbeat',
-        'USER': 'felixmiranda',
-        'PASSWORD': 'heartbeat',
-        'HOST': 'localhost',
-        'PORT': '5432',
-        'OPTIONS': {
-         'options': '-c search_path=heartbeat'
-         }
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'heartbeat',
+#         'USER': 'felixmiranda',
+#         'PASSWORD': 'heartbeat',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#         'OPTIONS': {
+#          'options': '-c search_path=heartbeat'
+#          }
+#     }
+# }
 
+
+DATABASES = {
+    'default': env.db('DATABASE_URL', default='postgresql://postgres:senha@host:porta/railway?schema=heartbeat')
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
