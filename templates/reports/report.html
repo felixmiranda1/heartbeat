@@ -296,62 +296,58 @@
   <script>
     function showTab(tab) {
       // Esconde todas as abas
-      document.querySelectorAll('[id^="tab-content"]').forEach(div => {
-        div.classList.add('hidden');
+      document.querySelectorAll('[id^="tab-content"]').forEach(div => div.classList.add('hidden'));
+      document.getElementById('tab-content-' + tab).classList.remove('hidden');
+  
+      // Estilo das tabs
+      document.querySelectorAll('.tab-button').forEach(t => {
+        t.classList.remove('bg-white', 'border', 'border-blue-600', 'shadow-sm', 'border-b-white');
+        t.classList.add('bg-gray-100', 'border', 'border-transparent');
       });
-  
-      // Mostra a aba atual
-      const target = document.getElementById(`tab-content-${tab}`);
-      if (tab === 'numerico') {
-  setTimeout(() => {
-    const campos = [
-      '#id_height',
-      '#id_weight',
-      '#id_measurement_7afa3a2b-d414-4fa0-8d82-b941f3f7db36',
-      '#id_measurement_c5326b50-bf6c-46f7-bbec-15748bee04c4',
-      '#id_measurement_690b176b-8163-4ce4-82d7-8df8e9df6050',
-      '#id_measurement_846611f4-8e53-4487-83cd-1ca680a2bd48',
-      '#id_measurement_ea1bd53d-a826-4815-972e-a2801a1b99e0'
-    ];
-
-    campos.forEach(selector => {
-      const input = document.querySelector(selector);
-      if (input && !input.dataset.htmxListenerAttached) {
-        input.addEventListener('input', () => {
-          requestAnimationFrame(() => {
-            enviarCalculosDerivadosParaBackend();
-          });
-        });
-        input.dataset.htmxListenerAttached = "true";
-      }
-    });
-  }, 100);
-}
-
-if (tab === 'descritivo') {
-  setTimeout(() => {
-    const campos = document.querySelectorAll('#tab-content-descritivo textarea');
-    campos.forEach(el => {
-      if (!el.dataset.htmxListenerAttached) {
-        el.addEventListener('input', () => {
-          requestAnimationFrame(enviarResumoParaBackend);
-        });
-        el.dataset.htmxListenerAttached = "true";
-      }
-    });
-  }, 100);
-}
-      target.classList.remove('hidden');
-  
-      // Atualiza o estilo das tabs
-      document.querySelectorAll('.tab-button').forEach(btn => {
-        btn.classList.remove('bg-white', 'border-blue-600', 'border-b-white', 'shadow-sm');
-        btn.classList.add('bg-gray-100');
-      });
-  
       const activeTab = document.querySelector(`[onclick="showTab('${tab}')"]`);
-      activeTab.classList.remove('bg-gray-100');
-      activeTab.classList.add('bg-white', 'border', 'border-blue-600', 'border-b-white', 'shadow-sm');
+      activeTab.classList.remove('bg-gray-100', 'border', 'border-transparent');
+      activeTab.classList.add('bg-white', '-mb-[2px]', 'border', 'border-blue-600', 'border-b-white', 'shadow-sm', 'pb-[7px]');
+  
+      // Ativa escuta nos inputs numéricos
+      if (tab === 'numerico') {
+        setTimeout(() => {
+          const campos = [
+            '#id_height',
+            '#id_weight',
+            '#id_measurement_7afa3a2b-d414-4fa0-8d82-b941f3f7db36',
+            '#id_measurement_c5326b50-bf6c-46f7-bbec-15748bee04c4',
+            '#id_measurement_690b176b-8163-4ce4-82d7-8df8e9df6050',
+            '#id_measurement_846611f4-8e53-4487-83cd-1ca680a2bd48',
+            '#id_measurement_ea1bd53d-a826-4815-972e-a2801a1b99e0'
+          ];
+          campos.forEach(selector => {
+            const input = document.querySelector(selector);
+            if (input && !input.dataset.htmxListenerAttached) {
+              input.addEventListener('input', () => {
+                requestAnimationFrame(() => {
+                  enviarCalculosDerivadosParaBackend();
+                });
+              });
+              input.dataset.htmxListenerAttached = "true";
+            }
+          });
+        }, 100);
+      }
+  
+      // Ativa escuta no modo descritivo
+      if (tab === 'descritivo') {
+        setTimeout(() => {
+          const campos = document.querySelectorAll('#tab-content-descritivo textarea');
+          campos.forEach(el => {
+            if (!el.dataset.htmxListenerAttached) {
+              el.addEventListener('input', () => {
+                requestAnimationFrame(enviarResumoParaBackend);
+              });
+              el.dataset.htmxListenerAttached = "true";
+            }
+          });
+        }, 100);
+      }
     }
   </script>
 
@@ -407,20 +403,6 @@ document.querySelectorAll('.manual-measurement').forEach(input => {
       verificarReferencias();
     });
 });
-
-function showTab(tab) {
-  document.querySelectorAll('[id^="tab-content"]').forEach(div => div.classList.add('hidden'));
-  document.getElementById('tab-content-' + tab).classList.remove('hidden');
-
-  document.querySelectorAll('.tab-button').forEach(t => {
-    t.classList.remove('bg-white', 'border', 'border-blue-600', 'shadow-sm', 'border-b-white');
-    t.classList.add('bg-gray-100', 'border', 'border-transparent');
-  });
-
-  const activeTab = document.querySelector(`[onclick="showTab('${tab}')"]`);
-  activeTab.classList.remove('bg-gray-100', 'border', 'border-transparent');
-  activeTab.classList.add('bg-white', '-mb-[2px]', 'border', 'border-blue-600', 'border-b-white', 'shadow-sm', 'pb-[7px]');
-}
 </script>
 
 <script>

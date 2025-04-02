@@ -207,19 +207,19 @@ def calculate_derived_measurements(manual_values, patient_values):
 
     # Massa Ventricular Esquerda (g)
     mve = (
-        0.8 * 1.04 * ((septo + diastole_final_ve + parede_posterior) ** 3 - diastole_final_ve ** 3) + 0.6
+        (0.8 * 1.04 * ((septo + diastole_final_ve + parede_posterior) ** 3 - diastole_final_ve ** 3) + 0.6) / 1000
         if diastole_final_ve and septo and parede_posterior else None
     )
     derived_values['70d430a4-23a9-4690-8523-31a693bc4ec5'] = mve
 
     # MVE / SC
     derived_values['f391f7ed-f21c-4d79-a51a-766262958d57'] = (
-        mve / sc if mve and sc else None
+        mve / sc  if mve and sc else None
     )
 
     # MVE / altura
     derived_values['fb0db8fa-9976-4b31-ae04-23277d07d67c'] = (
-        mve / altura_m if mve and altura_m else None
+        mve / altura_m  if mve and altura_m else None
     )
 
     # Espessura Relativa das Paredes (ERP)
@@ -403,9 +403,7 @@ def calcular_derive_htmx(request):
     if request.method == 'POST':
         altura_cm = float(request.POST.get('height') or 0)
         peso_kg = float(request.POST.get('weight') or 0)
-        print("🔍 Dados recebidos via HTMX:")
-        for key, value in request.POST.items():
-            print(f"{key}: {value}")
+        
         manual_values = {
         'measurement_7afa3a2b-d414-4fa0-8d82-b941f3f7db36': float(request.POST.get('diastole_final_ve') or 0),
         'measurement_c5326b50-bf6c-46f7-bbec-15748bee04c4': float(request.POST.get('sistole_final_ve') or 0),
