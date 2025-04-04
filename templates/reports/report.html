@@ -273,11 +273,7 @@
       {% endif %}
     </div>
 
-      <div id="tab-content-resumo"
-           class="hidden"
-           hx-post="{% url 'reports:resumo_parcial' %}"
-           hx-target="#tab-content-resumo"
-           hx-swap="innerHTML">
+      <div id="tab-content-resumo" class="hidden">
 
     <div class="bg-yellow-50 p-6 rounded-xl border border-yellow-400 shadow-inner text-sm text-gray-700 space-y-4">
       <h2 class="text-xl font-bold mb-4 text-yellow-900">📝 Resumo Final do Laudo</h2>
@@ -495,35 +491,52 @@ document.querySelectorAll('.manual-measurement').forEach(input => {
 </script>
 
   <script>
-    function enviarResumoParaBackend() {
-      const values = {};
+    function gerarResumoNoFrontend() {
+      const containerResumo = document.getElementById('resumo-box');
+      if (!containerResumo) return;
   
-      document.querySelectorAll('#tab-content-descritivo textarea, #tab-content-descritivo input[type="hidden"]').forEach(el => {
-        if (el.name) {
-          values[el.name] = el.value;
+      const blocos = [];
+  
+      document.querySelectorAll('#tab-content-descritivo .bg-white').forEach(bloco => {
+        const titulo = bloco.querySelector('h4')?.innerText;
+        const textarea = bloco.querySelector('textarea')?.value;
+  
+        if (titulo && textarea && textarea.trim() !== '') {
+          blocos.push({
+            titulo,
+            texto: textarea.trim()
+          });
         }
       });
-      
-      // Verifica se todos os campos estão preenchidos antes de enviar
-      const allFilled = Object.values(values).every(val => val && val.trim() !== '');
-      if (!allFilled) return;
-
-      document.getElementById('tab-content-resumo').classList.remove('hidden');
-
-      htmx.ajax('POST', '/reports/resumo-parcial/', {
-        target: '#tab-content-resumo',
-        swap: 'innerHTML',
-        values: values
+  
+      if (blocos.length === 0) return;
+  
+      // Gera HTML
+      containerResumo.innerHTML = '';
+      blocos.forEach(bloco => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${bloco.titulo}</strong><pre>${bloco.texto}</pre>`;
+        containerResumo.appendChild(li);
       });
+  
+      // Exibe a aba de resumo
+      document.getElementById('tab-content-resumo')?.classList.remove('hidden');
     }
   
-    
-    document.addEventListener('DOMContentLoaded', function () {
+    function debounce(func, delay = 600) {
+      let timer;
+      return function () {
+        clearTimeout(timer);
+        timer = setTimeout(() => func.apply(this, arguments), delay);
+      };
+    }
+  
+    document.addEventListener('DOMContentLoaded', () => {
       const campos = document.querySelectorAll('#tab-content-descritivo textarea');
+      const atualizarResumo = debounce(gerarResumoNoFrontend);
+  
       campos.forEach(el => {
-        el.addEventListener('input', () => {
-          requestAnimationFrame(enviarResumoParaBackend);
-        });
+        el.addEventListener('input', atualizarResumo);
       });
     });
   </script>
