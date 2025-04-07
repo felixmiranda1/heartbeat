@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+  <h1 class="text-xl font-semibold mb-4">Exames disponíveis no Orthanc</h1>
+
+  {% if error %}
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+      <strong>Erro:</strong> {{ error }}
+    </div>
+  {% endif %}
+
+  {% if previews %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+      {% for preview_url in previews %}
+        <div class="border p-4 rounded-lg shadow">
+          <img src="{{ preview_url }}" alt="Imagem DICOM" class="w-full h-auto mb-2 rounded" />
+          <p class="text-sm text-gray-600 break-all">{{ preview_url }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-gray-600">Nenhum exame encontrado no Orthanc.</p>
+  {% endif %}
+</div>
+{% endblock %}

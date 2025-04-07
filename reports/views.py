@@ -1,28 +1,24 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.http import HttpResponse
 from django.contrib import messages
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.template.loader import render_to_string
-from django.http import HttpResponse
-from decimal import Decimal
-import uuid
-from xhtml2pdf import pisa
-from io import BytesIO
-from django.http import HttpResponse
-from django.template.loader import render_to_string
+from reports.forms import (
+    PatientForm, AppointmentForm, ReportMeasurementForm,
+    ReportBlockFormSet, modelformset_factory
+)
 from reports.models import (
     Report, ReportMeasurement, MeasurementType,
     ReportBlock, CustomOptionCategory, CustomOption
 )
 from accounts.models import Patient, Appointment
-from reports.forms import (
-    PatientForm, AppointmentForm, ReportMeasurementForm,
-    ReportBlockFormSet, modelformset_factory
-)
-from django.views.decorators.csrf import csrf_exempt
-from django.template.loader import render_to_string
-from django.http import HttpResponse
-from django.http import HttpResponse
-from django.views.decorators.csrf import csrf_exempt
+from decimal import Decimal
+import uuid
+from io import BytesIO
+import requests
+from requests.auth import HTTPBasicAuth
+from xhtml2pdf import pisa
 
 # ------------------------------------------------------------------------------
 # 🚀 Report Creation View
@@ -397,7 +393,9 @@ def generate_report_pdf(request, report_id):
     response.write(pdf_buffer.read())
 
     return response
-
+# ------------------------------------------------------------------------------
+# ✏️ Calculate measures for frontend 
+# ------------------------------------------------------------------------------
 @csrf_exempt
 def calcular_derive_htmx(request):
     if request.method == 'POST':
@@ -456,33 +454,54 @@ def calcular_derive_htmx(request):
         return HttpResponse(html)
     else:
         return HttpResponse("Método não suportado", status=405)
-    
-from django.http import HttpResponse
-from django.utils.html import format_html
-from .forms import PatientForm, AppointmentForm, ReportMeasurementForm, ReportBlockFormSet
-@csrf_exempt
-def resumo_parcial(request):
-    if request.method == 'POST':
-        formset = ReportBlockFormSet(request.POST or None)
-        categories = CustomOptionCategory.objects.all().order_by('order_index')
-        combined_blocks = zip(formset.forms, categories)
-        html = format_html("""
-            <div class="flex justify-end mb-2">
-            <button type="button" onclick="copiarResumo()" class="btn btn-xs btn-outline text-gray-600">📋 Copiar Resumo</button>
-            </div>
-            <div id="resumo-box" class="bg-white p-4 rounded-lg border border-gray-300 shadow text-sm whitespace-pre-wrap">
-                <h2 class="text-xl font-bold mb-4 text-gray-900">📝 Resumo Final do Laudo</h2>
-                <div>
-                    <ul class="list-disc list-inside space-y-2">
-                    {}
-                    </ul>
-                </div>
-            </div>
-        """,
-        format_html(''.join(
-            f'<li><strong class="block text-sm text-gray-800 mb-1">{category.name}:</strong><pre class="whitespace-pre-wrap">{form["content"].value()}</pre></li>'
-            for form, category in combined_blocks if form["content"].value()
-        ))
-        )
 
-        return HttpResponse(html)
+# ------------------------------------------------------------------------------
+# ✏️ Connection with Orthanc
+# ------------------------------------------------------------------------------
+
+ORTHANC_URL = "http://<IP_DO_DR_OTAVIO>:8042"  # substitua pelo IP real na reunião
+ORTHANC_USER = "admin"
+ORTHANC_PASSWORD = "senha123"
+
+def orthanc_exams_view(request):
+    try:
+        # 1. Buscar todos os estudos disponíveis
+        studies_response = requests.get(
+            f"{ORTHANC_URL}/studies",
+            auth=HTTPBasicAuth(ORTHANC_USER, ORTHANC_PASSWORD)
+        )
+        studies_response.raise_for_status()
+        study_ids = studies_response.json()
+
+        all_previews = []
+
+        # 2. Para cada estudo, buscar as séries e imagens
+        for study_id in study_ids:
+            series_response = requests.get(
+                f"{ORTHANC_URL}/studies/{study_id}/series",
+                auth=HTTPBasicAuth(ORTHANC_USER, ORTHANC_PASSWORD)
+            )
+            series_response.raise_for_status()
+            series_ids = series_response.json()
+
+            for series_id in series_ids:
+                instances_response = requests.get(
+                    f"{ORTHANC_URL}/series/{series_id}/instances",
+                    auth=HTTPBasicAuth(ORTHANC_USER, ORTHANC_PASSWORD)
+                )
+                instances_response.raise_for_status()
+                instance_ids = instances_response.json()
+
+                for instance_id in instance_ids:
+                    preview_url = f"{ORTHANC_URL}/instances/{instance_id}/preview"
+                    all_previews.append(preview_url)
+
+        return render(request, "orthanc_exams.html", {
+            "previews": all_previews
+        })
+
+    except Exception as e:
+        return render(request, "reports/orthanc_exams.html", {
+            "error": str(e),
+            "previews": []
+        })

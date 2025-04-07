@@ -276,7 +276,12 @@
       <div id="tab-content-resumo" class="hidden">
 
     <div class="bg-yellow-50 p-6 rounded-xl border border-yellow-400 shadow-inner text-sm text-gray-700 space-y-4">
-      <h2 class="text-xl font-bold mb-4 text-yellow-900">📝 Resumo Final do Laudo</h2>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-yellow-900">📝 Resumo Final do Laudo</h2>
+        <button type="button" onclick="copiarResumo()" class="btn btn-sm btn-outline border-yellow-400 text-yellow-800">
+          📋 Copiar Resumo
+        </button>
+      </div>
       <div>
         <ul class="list-disc list-inside" id="resumo-box">
           {{ conteudo_do_resumo }}
