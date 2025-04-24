@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<script src="https://unpkg.com/htmx.org@1.9.5"></script>
+
+<div class="p-6 max-w-6xl mx-auto">
+  <h1 class="text-3xl font-bold mb-6 text-gray-800">📚 Dicionário de Atalhos</h1>
+
+  {% regroup atalhos by category as agrupados %}
+
+  <!-- Abas -->
+  <div class="flex flex-wrap gap-2 mb-6">
+    {% for grupo in agrupados %}
+      <button onclick="mostrarCategoria('{{ grupo.grouper|slugify }}')" 
+              class="tab-btn px-4 py-2 rounded bg-gray-100 hover:bg-green-100 text-sm font-medium"
+              id="btn-{{ grupo.grouper|slugify }}">
+        {{ grupo.grouper }}
+      </button>
+    {% endfor %}
+  </div>
+
+  <!-- Conteúdo das abas -->
+  {% for grupo in agrupados %}
+  <div id="tab-{{ grupo.grouper|slugify }}" class="tab-content" style="display: none;">
+      <h2 class="text-xl font-semibold text-green-700 mb-2">{{ grupo.grouper }}</h2>
+      <table class="w-full table-auto border border-gray-300 text-sm bg-white shadow rounded mb-10">
+        <thead class="bg-gray-100 text-left">
+          <tr>
+            <th class="p-2 w-1/5">Atalho</th>
+            <th class="p-2">Descrição</th>
+            <th class="p-2 text-center">Favoritos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for atalho in grupo.list %}
+            <tr class="hover:bg-gray-50">
+              <td class="p-2 font-mono text-blue-700">{{ atalho.shortcut_key }}</td>
+              <td class="p-2">{{ atalho.text }}</td>
+              <td class="p-2 text-center">
+                <button 
+                  hx-post="{% url 'reports:toggle_favorite' atalho.id %}"
+                  hx-swap="outerHTML"
+                  hx-target="this"
+                  class="text-yellow-500 text-lg"
+                  title="Favorito"
+                >
+                  {% if atalho.id in favoritos_ids %}
+                    ★
+                  {% else %}
+                    ☆
+                  {% endif %}
+                </button>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+</div>
+
+<script>
+function mostrarCategoria(id) {
+  console.log("Mostrar categoria:", id);
+
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.style.display = 'none'; // força esconder todas
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(el => {
+    el.classList.remove('bg-green-100'); // remove destaque de todos os botões
+  });
+
+  const target = document.getElementById('tab-' + id);
+  const btn = document.getElementById('btn-' + id);
+
+  if (target) {
+    target.style.display = 'block'; // força exibir a aba correta
+  }
+
+  if (btn) {
+    btn.classList.add('bg-green-100');
+  }
+}
+</script>
+
+<script>
+// HTMX já está ativado pelo script incluído acima
+</script>
+
+
+{% endblock %}

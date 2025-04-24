@@ -92,30 +92,30 @@ TEMPLATES = [
 WSGI_APPLICATION = 'heartbeat.wsgi.application'
 
 
-# Database
+#Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'heartbeat',
-#         'USER': 'felixmiranda',
-#         'PASSWORD': 'heartbeat',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#         'OPTIONS': {
-#          'options': '-c search_path=heartbeat'
-#          }
-#     }
-# }
-
-
 DATABASES = {
-    'default': env.db(
-        'DATABASE_URL',
-        default='postgresql://postgres:YcGXMTNriRwMULoKitCcglrNEuNWEgqB@metro.proxy.rlwy.net:40515/railway',
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'heartbeat',
+        'USER': 'felixmiranda',
+        'PASSWORD': 'heartbeat',
+        'HOST': 'localhost',
+        'PORT': '5432',
+        'OPTIONS': {
+         'options': '-c search_path=heartbeat'
+         }
+    }
 }
+
+
+# DATABASES = {
+#     'default': env.db(
+#         'DATABASE_URL',
+#         default='postgresql://postgres:YcGXMTNriRwMULoKitCcglrNEuNWEgqB@metro.proxy.rlwy.net:40515/railway',
+#     )
+# }
 
 DATABASES['default']['OPTIONS'] = {
     'options': '-c search_path=heartbeat'

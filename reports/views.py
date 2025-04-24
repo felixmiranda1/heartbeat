@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.contrib import messages
 from django.utils import timezone
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.template.loader import render_to_string
 from reports.forms import (
@@ -10,13 +11,14 @@ from reports.forms import (
 )
 from reports.models import (
     Report, ReportMeasurement, MeasurementType,
-    ReportBlock, CustomOptionCategory, CustomOption
+    ReportBlock, CustomOptionCategory, CustomOption, FavoriteShortcut
 )
 from accounts.models import Patient, Appointment
 from decimal import Decimal
 import uuid
 from io import BytesIO
 import requests
+import json
 from requests.auth import HTTPBasicAuth
 from xhtml2pdf import pisa
 
@@ -110,6 +112,14 @@ def create_report(request):
         appointment_form = AppointmentForm(initial={'date': timezone.now()})
         measurement_form = ReportMeasurementForm()
         categories = CustomOptionCategory.objects.all().order_by('order_index')
+        favorites = CustomOption.objects.filter(
+            id__in=FavoriteShortcut.objects.filter(
+                user_id='00000000-0000-0000-0000-000000000000'
+            ).values_list('shortcut_id', flat=True)
+        )
+        favorite_ids = [str(f.id) for f in favorites]
+        all_shortcuts = CustomOption.objects.all()
+        shortcut_map = {opt.shortcut_key: opt.text for opt in all_shortcuts}
 
         ReportBlockFormSet = modelformset_factory(ReportBlock, fields=('content',), extra=len(categories))
         formset = ReportBlockFormSet(queryset=ReportBlock.objects.none())
@@ -123,7 +133,7 @@ def create_report(request):
         grouped_options = {}
         for option in custom_options:
             grouped_options.setdefault(option.category.id, []).append(option)
-
+        
         context = {
             'patient_form': patient_form,
             'appointment_form': appointment_form,
@@ -131,6 +141,9 @@ def create_report(request):
             'formset': formset,
             'combined_blocks': combined_blocks,
             'grouped_options': grouped_options,
+            'favorites': favorites,
+            'favorite_ids': favorite_ids,
+            'shortcut_map': json.dumps(shortcut_map),
             'section': 'new_report'
         }
         return render(request, 'reports/report.html', context)
@@ -182,12 +195,6 @@ def calculate_derived_measurements(manual_values, patient_values):
 
     # Volume Sistólico Final (Simpson)
     derived_values['3cb036a2-bc21-4124-b607-dc9b1b6245e0'] = sistole_final_ve if sistole_final_ve else None
-
-    # Fração de Ejeção (Simpson)
-    derived_values['facaa610-84b8-47a3-9db2-13065b31fa94'] = (
-        ((diastole_final_ve - sistole_final_ve) / diastole_final_ve * 100)
-        if diastole_final_ve > 0 else None
-    )
 
     # Fração de Ejeção (Teichholz)
     derived_values['9c28deef-78d5-47aa-9fd2-218fbccb1eeb'] = (
@@ -505,3 +512,44 @@ def orthanc_exams_view(request):
             "error": str(e),
             "previews": []
         })
+    
+def glossary_shortcuts(request):
+    atalhos = CustomOption.objects.all().order_by('category', 'shortcut_key')
+    favoritos_ids = FavoriteShortcut.objects.filter(user_id='00000000-0000-0000-0000-000000000000').values_list('shortcut_id', flat=True)
+    return render(request, 'reports/glossary.html', {
+        'atalhos': atalhos,
+        'favoritos_ids': list(favoritos_ids),
+    })
+
+def toggle_favorite(request, shortcut_id):
+    user_id = uuid.UUID("00000000-0000-0000-0000-000000000000")
+
+    try:
+        shortcut = CustomOption.objects.get(id=shortcut_id)
+    except CustomOption.DoesNotExist:
+        return HttpResponse(status=404)
+
+    fav = FavoriteShortcut.objects.filter(user_id=user_id, shortcut=shortcut).first()
+
+    if fav:
+        fav.delete()
+        favoritado = False
+    else:
+        if FavoriteShortcut.objects.filter(user_id=user_id).count() >= 4:
+            return HttpResponse("★", content_type="text/html")  # mantém ★ para evitar inconsistência visual
+        FavoriteShortcut.objects.create(user_id=user_id, shortcut=shortcut)
+        favoritado = True
+
+    # HTML embutido
+    estrela = "★" if favoritado else "☆"
+    html = f"""
+    <button 
+      hx-post="/reports/atalhos/favoritar/{shortcut_id}/"
+      hx-swap="outerHTML"
+      hx-target="this"
+      class="text-yellow-500 text-lg"
+      title="Favorito"
+    >{estrela}</button>
+    """
+
+    return HttpResponse(html)

@@ -33,6 +33,10 @@ class AppointmentForm(forms.ModelForm):
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
         }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['professional'].initial = "Dr. Otavio Cunha Gomes"
+        self.fields['procedure'].initial = "Ecodopplercardiograma"
 
     def clean_date(self):
         date = self.cleaned_data.get('date')

@@ -233,6 +233,9 @@
 
     <div id="tab-content-descritivo" class="hidden">
       <!-- Seção 5: Laudo Descritivo -->
+      
+      {% if favorites %}
+      {% endif %}
       {% if combined_blocks %}
         <div class="space-y-6">
           {{ formset.management_form }}
@@ -240,9 +243,14 @@
             <div class="bg-white p-4 rounded-xl border border-gray-300 shadow-sm">
               <div class="flex justify-between items-center mb-2">
                 <h4 class="font-semibold text-gray-800 text-base">{{ category.name }}</h4>
-                <button type="button"
-                        onclick="document.getElementById('{{ form.content.id_for_label }}').value='';"
-                        class="btn btn-xs btn-outline text-gray-600">🧹 Limpar</button>
+                <div class="flex items-center gap-2">
+                  <button type="button"
+                          onclick="document.getElementById('{{ form.content.id_for_label }}').value='';"
+                          class="btn btn-xs btn-outline text-gray-600">🧹 Limpar</button>
+                          <a href="{% url 'reports:glossary' %}" target="_blank" class="btn btn-xs btn-outline text-gray-600">
+                            📘 Atalhos
+                          </a>
+                </div>
               </div>
               <div class="flex flex-col lg:flex-row gap-4 items-start">
                 <div class="w-full lg:w-1/2">
@@ -254,12 +262,8 @@
                   {% if options %}
                     <div class="w-full lg:w-3/5 grid grid-cols-2 gap-2 pr-2">
                       {% for option in options %}
-                        <button type="button" class="btn btn-outline btn-sm insert-option text-left"
-                                data-target-id="{{ form.content.id_for_label }}"
-                                data-text="{{ option.text }}">
-                          {{ option.shortcut_key }} — {{ option.text|truncatechars:60 }}
-                        </button>
-                      {% endfor %}
+
+                {% endfor %}
                     </div>
                   {% endif %}
                 {% endwith %}
@@ -292,6 +296,12 @@
 
       </div>
     </div>
+  {% if shortcut_map %}
+    <script id="shortcut-data" type="application/json">
+      {{ shortcut_map|safe }}
+    </script>
+  {% endif %}
+
   </form>
 
   <script>
@@ -419,52 +429,49 @@ document.querySelectorAll('.manual-measurement').forEach(input => {
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('textarea').forEach(textarea => {
-      textarea.addEventListener('keyup', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-          let lines = this.value.split('\n');
-  
-          // Captura a última linha com conteúdo
-          let lastLineIndex = lines.length - 1;
-          while (lastLineIndex >= 0 && lines[lastLineIndex].trim() === '') {
-            lastLineIndex--;
-          }
-  
-          if (lastLineIndex < 0) return;
-  
-          let lastLine = lines[lastLineIndex].trim();
-          const words = lastLine.split(/\s+/);
-          const lastWord = words[words.length - 1];
-          const textareaId = this.id;
-  
-          const relatedOptions = Array.from(
-            document.querySelectorAll(`.insert-option[data-target-id="${textareaId}"]`)
-          );
-  
-          for (const option of relatedOptions) {
-            if (option.innerText.startsWith(lastWord + ' —')) {
-              // Remove o atalho digitado da linha
-              const atalhoRegex = new RegExp(`\\b${lastWord}\\b\\s*$`);
-              lastLine = lastLine.replace(atalhoRegex, '').trim();
-  
-              // Substitui a linha com a frase expandida
-              lines[lastLineIndex] = (lastLine + ' ' + option.dataset.text).trim();
-  
-              // Garante uma linha vazia ao final
-              if (lines[lines.length - 1].trim() !== '') {
-                lines.push('');
-              }
-  
-              this.value = lines.join('\n');
-              break;
+  // Carrega o mapa de atalhos (injetado como JSON no HTML)
+  const shortcutDataScript = document.getElementById("shortcut-data");
+  let shortcutData = {};
+  if (shortcutDataScript) {
+    shortcutData = JSON.parse(shortcutDataScript.textContent);
+  }
 
-            }
-          }
-          
+  // Escuta digitação nos textareas
+  document.querySelectorAll('textarea').forEach(textarea => {
+    textarea.addEventListener('keyup', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        let lines = this.value.split('\n');
+
+        // Captura a última linha com conteúdo
+        let lastLineIndex = lines.length - 1;
+        while (lastLineIndex >= 0 && lines[lastLineIndex].trim() === '') {
+          lastLineIndex--;
         }
-      });
+
+        if (lastLineIndex < 0) return;
+
+        let lastLine = lines[lastLineIndex].trim();
+        const words = lastLine.split(/\s+/);
+        const lastWord = words[words.length - 1];
+
+        if (shortcutData.hasOwnProperty(lastWord)) {
+          const fullText = shortcutData[lastWord]; // se for lista no futuro: shortcutData[lastWord][0]
+
+          const atalhoRegex = new RegExp(`\\b${lastWord}\\b\\s*$`);
+          lastLine = lastLine.replace(atalhoRegex, '').trim();
+
+          lines[lastLineIndex] = (lastLine + ' ' + fullText).trim();
+
+          if (lines[lines.length - 1].trim() !== '') {
+            lines.push('');
+          }
+
+          this.value = lines.join('\n');
+        }
+      }
     });
-  
+  });
+});
     // Inserção de texto com quebra de linha ao clicar no botão
     document.querySelectorAll('.insert-option').forEach(button => {
       button.addEventListener('click', function () {
@@ -492,7 +499,7 @@ document.querySelectorAll('.manual-measurement').forEach(input => {
         }
       });
     });
-  });
+
 </script>
 
   <script>
@@ -562,3 +569,13 @@ document.querySelectorAll('.manual-measurement').forEach(input => {
   }
 </script>
 {% endblock %}
+  <script>
+    function inserirAtalho(texto) {
+      const activeTextarea = document.querySelector('textarea:focus');
+      if (activeTextarea) {
+        activeTextarea.value += (activeTextarea.value ? '\n' : '') + texto;
+      } else {
+        alert("Clique em um campo antes de inserir o atalho.");
+      }
+    }
+  </script>

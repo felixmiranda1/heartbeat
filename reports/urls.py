@@ -10,5 +10,7 @@ urlpatterns = [
     path('hx/numerico/', views.hx_numerico, name='numeric_report'),
     path('hx/descritivo/', views.hx_descritivo, name='descriptive_report'),
     path('calcular-derivados/', views.calcular_derive_htmx, name='calcular_derivados'),
-    path("orthanc/exames/", views.orthanc_exams_view, name="orthanc_exams"),
+    path("orthanc/exames/", views.orthanc_exams_view, name="orthanc_exams"),    
+    path('atalhos/', views.glossary_shortcuts, name='glossary'),
+    path('atalhos/favoritar/<uuid:shortcut_id>/', views.toggle_favorite, name='toggle_favorite'),
 ]

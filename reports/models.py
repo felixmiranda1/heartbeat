@@ -139,3 +139,19 @@ class SyncLog(models.Model):
 
     def __str__(self):
         return f"{self.action} on {self.entity} - {self.status}"
+
+
+# FavoriteShortcut (atalhos favoritados por usuário)
+class FavoriteShortcut(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    shortcut = models.ForeignKey(CustomOption, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'heartbeat"."favorite_shortcut'
+        unique_together = ('user', 'shortcut')
+        managed = False
+
+    def __str__(self):
+        return f"{self.user} → {self.shortcut.shortcut_key}"
