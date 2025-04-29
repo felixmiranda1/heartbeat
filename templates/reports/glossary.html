@@ -6,7 +6,7 @@
 <div class="p-6 max-w-6xl mx-auto">
   <h1 class="text-3xl font-bold mb-6 text-gray-800">📚 Dicionário de Atalhos</h1>
 
-  {% regroup atalhos by category as agrupados %}
+  {% regroup atalhos by class_ref as agrupados %}
 
   <!-- Abas -->
   <div class="flex flex-wrap gap-2 mb-6">
@@ -14,7 +14,7 @@
       <button onclick="mostrarCategoria('{{ grupo.grouper|slugify }}')" 
               class="tab-btn px-4 py-2 rounded bg-gray-100 hover:bg-green-100 text-sm font-medium"
               id="btn-{{ grupo.grouper|slugify }}">
-        {{ grupo.grouper }}
+        {{ grupo.grouper.name }}
       </button>
     {% endfor %}
   </div>
@@ -26,7 +26,8 @@
       <table class="w-full table-auto border border-gray-300 text-sm bg-white shadow rounded mb-10">
         <thead class="bg-gray-100 text-left">
           <tr>
-            <th class="p-2 w-1/5">Atalho</th>
+            <th class="p-2 w-1/6">Código</th>
+            <th class="p-2 w-1/6">Atalho</th>
             <th class="p-2">Descrição</th>
             <th class="p-2 text-center">Favoritos</th>
           </tr>
@@ -34,6 +35,7 @@
         <tbody>
           {% for atalho in grupo.list %}
             <tr class="hover:bg-gray-50">
+              <td class="p-2 font-mono text-purple-700">{{ atalho.alpha_numeric_code }}</td>
               <td class="p-2 font-mono text-blue-700">{{ atalho.shortcut_key }}</td>
               <td class="p-2">{{ atalho.text }}</td>
               <td class="p-2 text-center">

@@ -17,6 +17,7 @@ from accounts.models import Patient, Appointment
 from decimal import Decimal
 import uuid
 from io import BytesIO
+from datetime import date
 import requests
 import json
 from requests.auth import HTTPBasicAuth
@@ -120,7 +121,6 @@ def create_report(request):
         favorite_ids = [str(f.id) for f in favorites]
         all_shortcuts = CustomOption.objects.all()
         shortcut_map = {opt.shortcut_key: opt.text for opt in all_shortcuts}
-
         ReportBlockFormSet = modelformset_factory(ReportBlock, fields=('content',), extra=len(categories))
         formset = ReportBlockFormSet(queryset=ReportBlock.objects.none())
 
@@ -129,18 +129,13 @@ def create_report(request):
             form.instance.order_index = category.order_index
 
         combined_blocks = list(zip(formset.forms, categories))
-        custom_options = CustomOption.objects.select_related('category').all().order_by('category__name')
-        grouped_options = {}
-        for option in custom_options:
-            grouped_options.setdefault(option.category.id, []).append(option)
-        
+
         context = {
             'patient_form': patient_form,
             'appointment_form': appointment_form,
             'measurement_form': measurement_form,
             'formset': formset,
             'combined_blocks': combined_blocks,
-            'grouped_options': grouped_options,
             'favorites': favorites,
             'favorite_ids': favorite_ids,
             'shortcut_map': json.dumps(shortcut_map),
@@ -196,10 +191,16 @@ def calculate_derived_measurements(manual_values, patient_values):
     # Volume Sistólico Final (Simpson)
     derived_values['3cb036a2-bc21-4124-b607-dc9b1b6245e0'] = sistole_final_ve if sistole_final_ve else None
 
-    # Fração de Ejeção (Teichholz)
+    # Fração de Ejeção (Teichholz aprimorada)
+    def teichholz_volume(d):
+        return (d ** 3) * (7 / (2.4 + d))
+
+    volume_diastolico = teichholz_volume(diastole_final_ve)
+    volume_sistolico = teichholz_volume(sistole_final_ve)
+
     derived_values['9c28deef-78d5-47aa-9fd2-218fbccb1eeb'] = (
-        ((diastole_final_ve - sistole_final_ve) / diastole_final_ve * 100)
-        if diastole_final_ve > 0 else None
+        ((volume_diastolico - volume_sistolico) / volume_diastolico * 100)
+        if diastole_final_ve > 0 and sistole_final_ve > 0 else None
     )
 
     # Encurtamento da Cavidade (%)
@@ -360,25 +361,35 @@ def generate_report_pdf(request, report_id):
     structural_measurements = measurements[:7]  # Primeiros 7 para Parâmetros Estruturais
     ventricular_functions = measurements[7:]    # Restantes para Funções Ventriculares
 
-    # Preencher o contexto com os dados do paciente, medições e blocos descritivos
+    def calculate_age(birth_date):
+        today = date.today()
+        return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, today.day))
+
+    height = patient.height
+    weight = patient.weight
+    surface_area = round(
+        0.007184 * (float(weight) ** 0.425) * (float(height) ** 0.725), 
+        3
+    ) if height and weight else None
     context = {
         "patient_name": patient.name,
         "patient_birth_date": patient.birth_date.strftime("%d/%m/%Y"),
+        "patient_age": calculate_age(patient.birth_date),
         "patient_cpf": patient.cpf,
+        "height": height,
+        "weight": weight,
+        "surface_area": surface_area,
+        "registration": patient.cpf or "",  # ou algum campo especial que você queira
         "report_date": report.created_at.strftime("%d/%m/%Y"),
         "appointment_procedure": appointment.procedure,
         "appointment_health_insurance": appointment.health_insurance,
         "appointment_date": appointment.date.strftime("%d/%m/%Y"),
         "appointment_requester": appointment.requester,
-
-        # Passando as medições divididas para o template
+        "doctor_name": "Seu Nome",  # por enquanto podemos deixar fixo
+        "doctor_crm": "123456",
         "structural_measurements": structural_measurements,
         "ventricular_functions": ventricular_functions,
-        
-        # Blocos descritivos (que são preenchidos dinamicamente com os campos do formulário)
         "report_blocks": report_blocks,
-        
-        # Outros dados adicionais
         "parametros_descritivos": {},
         "final_observations": "Exame realizado com Doppler Espectral e Mapeamento de Fluxo em Cores."
     }
@@ -443,7 +454,6 @@ def calcular_derive_htmx(request):
                 ("bc89d090-a6fb-4f59-a89c-1cc8fc56aba2", "VE(d) / Altura", "📏", ""),
                 ("6db01c09-ea55-428d-a9d3-fb4c812e3b7f", "Volume Diastólico Final", "🫁", "mL"),
                 ("3cb036a2-bc21-4124-b607-dc9b1b6245e0", "Volume Sistólico Final", "🫁", "mL"),
-                ("facaa610-84b8-47a3-9db2-13065b31fa94", "Fração de Ejeção (Simpson)", "🔃", "%"),
                 ("9c28deef-78d5-47aa-9fd2-218fbccb1eeb", "Fração de Ejeção (Teicholz)", "🫀", "%"),
                 ("96f07bcc-8336-434a-8e1c-12d57e9b822a", "Encurtamento Cavidade", "📉", "%"),
                 ("70d430a4-23a9-4690-8523-31a693bc4ec5", "Massa Ventricular Esquerda", "⚖️", "g"),
@@ -514,7 +524,7 @@ def orthanc_exams_view(request):
         })
     
 def glossary_shortcuts(request):
-    atalhos = CustomOption.objects.all().order_by('category', 'shortcut_key')
+    atalhos = CustomOption.objects.select_related('class_ref').all().order_by('class_ref__name', 'shortcut_key')
     favoritos_ids = FavoriteShortcut.objects.filter(user_id='00000000-0000-0000-0000-000000000000').values_list('shortcut_id', flat=True)
     return render(request, 'reports/glossary.html', {
         'atalhos': atalhos,

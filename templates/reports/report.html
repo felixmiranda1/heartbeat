@@ -68,7 +68,26 @@
                     {% endif %}
                   </div>
                 {% endwith %}
-              {% elif label == "Altura" or label == "Peso" %}
+              {% elif label == "Altura" %}
+                {% with col_span="col-span-4 sm:col-span-2" %}
+                  <div class="{{ col_span }}">
+                    <label class="label">
+                      <span class="label-text">{{ label }}</span>
+                    </label>
+                    {{ field|add_class:"input input-bordered w-full text-sm py-1.5 bg-white" }}
+                    {% if field.help_text %}
+                      <label class="label">
+                        <span class="label-text-alt">{{ field.help_text }}</span>
+                      </label>
+                    {% endif %}
+                    {% if field.errors %}
+                      <label class="label">
+                        <span class="label-text-alt text-error">{{ field.errors }}</span>
+                      </label>
+                    {% endif %}
+                  </div>
+                {% endwith %}
+              {% elif label == "Peso" %}
                 {% with col_span="col-span-4 sm:col-span-2" %}
                   <div class="{{ col_span }}">
                     <label class="label">
@@ -257,16 +276,6 @@
                   <input type="hidden" name="{{ form.id.name }}" value="{{ form.id.value }}">
                   {{ form.content|add_class:"manual-report-block bg-gray-50 w-full p-2 text-sm rounded-md border border-gray-300 resize-y min-h-[32px] h-[80px]" }}
                 </div>
- 
-                {% with grouped_options|get_item:category.id as options %}
-                  {% if options %}
-                    <div class="w-full lg:w-3/5 grid grid-cols-2 gap-2 pr-2">
-                      {% for option in options %}
-
-                {% endfor %}
-                    </div>
-                  {% endif %}
-                {% endwith %}
               </div>
             </div>
           {% endfor %}

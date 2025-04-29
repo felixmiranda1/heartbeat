@@ -108,8 +108,9 @@ class CustomOptionCategory(models.Model):
 # Custom Option (atalhos)
 class CustomOption(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    category = models.ForeignKey(CustomOptionCategory, on_delete=models.CASCADE)
+    class_ref = models.ForeignKey('CustomOptionClass', on_delete=models.CASCADE, null=True, blank=True)
     shortcut_key = models.CharField(max_length=5)
+    alpha_numeric_code = models.CharField(max_length=10, null=True, blank=True)
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -119,7 +120,7 @@ class CustomOption(models.Model):
         managed = False
 
     def __str__(self):
-        return f"{self.shortcut_key}: {self.text} [{self.category}]"
+        return f"{self.shortcut_key}: {self.text}  [{self.class_ref.name if self.class_ref else 'Sem Classe'}]"
 
 
 # Sync Log (controle de sincronização offline/online)
@@ -155,3 +156,35 @@ class FavoriteShortcut(models.Model):
 
     def __str__(self):
         return f"{self.user} → {self.shortcut.shortcut_key}"
+
+
+# Classe de atalhos reutilizáveis
+class CustomOptionClass(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'heartbeat"."custom_option_class'
+        managed = False
+
+    def __str__(self):
+        return self.name
+
+
+# Associação entre classes de atalhos e categorias visuais
+class OptionClassCategory(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    class_ref = models.ForeignKey(CustomOptionClass, on_delete=models.CASCADE)
+    category = models.ForeignKey(CustomOptionCategory, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'heartbeat"."option_class_category'
+        unique_together = ('class_ref', 'category')
+        managed = False
+
+    def __str__(self):
+        return f"{self.class_ref.name} ↔ {self.category.name}"
